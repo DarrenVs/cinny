@@ -40,6 +40,7 @@ export enum StateEvent {
 
   PoniesRoomEmotes = 'im.ponies.room_emotes',
   PowerLevelTags = 'in.cinny.room.power_level_tags',
+  SpaceRoomPresets = 'in.cinny.space.room_presets',
 }
 
 export enum MessageEvent {

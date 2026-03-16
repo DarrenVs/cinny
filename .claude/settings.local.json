@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const { Icons } = require\\(''./node_modules/folds/dist/index.cjs.js''\\); console.log\\(Object.keys\\(Icons\\).filter\\(k => [''Checkmark'',''UploadCloud'',''Lock'',''AlertTriangle'',''Info'',''Exchange'',''Download'',''ChevronRight'',''ChevronLeft''].includes\\(k\\)\\)\\)\")",
+      "Bash(xargs grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(grep -n \"PowerColorBadge\\\\|PowerIcon\" /c/Users/darre/GitHub/cinny/src/app/components/power/*.tsx)"
+    ]
+  }
+}

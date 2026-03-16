@@ -106,12 +106,20 @@ type PowersProps = {
   powerLevels: IPowerLevels;
   permissionGroups: PermissionGroup[];
   onEdit?: () => void;
+  /**
+   * When provided, display these tags instead of the room's tags.
+   * Used when a preset is loaded to preview its labels before applying.
+   */
+  overrideTags?: import('../../../hooks/usePowerLevelTags').PowerLevelTags;
+  /** When true, shows a notice that labels are a preview from a loaded preset */
+  presetTagsNotice?: boolean;
 };
-export function Powers({ powerLevels, permissionGroups, onEdit }: PowersProps) {
+export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, presetTagsNotice }: PowersProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
   const room = useRoom();
-  const powerLevelTags = usePowerLevelTags(room, powerLevels);
+  const roomPowerLevelTags = usePowerLevelTags(room, powerLevels);
+  const powerLevelTags = overrideTags ?? roomPowerLevelTags;
   const creators = useRoomCreators(room);
   const creatorsTag = useRoomCreatorsTag();
   const creatorTagIconSrc =
@@ -119,6 +127,19 @@ export function Powers({ powerLevels, permissionGroups, onEdit }: PowersProps) {
 
   return (
     <Box direction="Column" gap="100">
+      {presetTagsNotice && (
+        <Box
+          style={{
+            padding: '8px 12px',
+            background: 'var(--cpd-color-bg-info-subtle)',
+            borderRadius: '6px',
+          }}
+        >
+          <Text size="T200">
+            <b>Preview:</b> These labels will be applied from the preset.
+          </Text>
+        </Box>
+      )}
       {creators.size > 0 && (
         <SequenceCard
           variant="SurfaceVariant"

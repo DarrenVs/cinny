@@ -110,6 +110,7 @@ export type CreateRoomData = {
   knock: boolean;
   allowFederation: boolean;
   additionalCreators?: string[];
+  powerLevelOverride?: Record<string, unknown>;
 };
 export const createRoom = async (mx: MatrixClient, data: CreateRoomData): Promise<string> => {
   const initialState: ICreateRoomStateEvent[] = [];
@@ -138,8 +139,8 @@ export const createRoom = async (mx: MatrixClient, data: CreateRoomData): Promis
       data.allowFederation,
       data.additionalCreators
     ),
-    power_level_content_override:
-      data.type === RoomType.Call ? createVoiceRoomPowerLevelsOverride() : undefined,
+    power_level_content_override: data.powerLevelOverride
+      ?? (data.type === RoomType.Call ? createVoiceRoomPowerLevelsOverride() : undefined),
     initial_state: initialState,
   };
 

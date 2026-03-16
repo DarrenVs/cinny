@@ -1,5 +1,5 @@
 /* eslint-disable react/no-array-index-key */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Box, Button, Chip, config, Icon, Icons, Menu, Spinner, Text } from 'folds';
 import produce from 'immer';
 import { SequenceCard } from '../../../components/sequence-card';
@@ -28,11 +28,23 @@ type PermissionGroupsProps = {
   canEdit: boolean;
   powerLevels: IPowerLevels;
   permissionGroups: PermissionGroup[];
+  /**
+   * When provided, pre-loads these as pending changes (e.g. from a preset).
+   * Resets internal permissionUpdate state when this reference changes.
+   */
+  presetChanges?: Map<PermissionLocation, number>;
+  /**
+   * When provided, called instead of directly sending a state event.
+   * Useful when the parent wants to combine multiple state event sends (e.g. tags + permissions).
+   */
+  onApply?: (editedPowerLevels: IPowerLevels) => Promise<void>;
 };
 export function PermissionGroups({
   powerLevels,
   permissionGroups,
   canEdit,
+  presetChanges,
+  onApply,
 }: PermissionGroupsProps) {
   const mx = useMatrixClient();
   const room = useRoom();
@@ -45,11 +57,19 @@ export function PermissionGroups({
     new Map()
   );
 
+  // Reset when permissionGroups reference changes (room switch)
   useEffect(() => {
-    // reset permission update if component rerender
-    // as permission location object reference has changed
     setPermissionUpdate(new Map());
   }, [permissionGroups]);
+
+  // When presetChanges reference changes, pre-load those changes as pending
+  const prevPresetChangesRef = useRef<Map<PermissionLocation, number> | undefined>(undefined);
+  useEffect(() => {
+    if (presetChanges !== undefined && presetChanges !== prevPresetChangesRef.current) {
+      prevPresetChangesRef.current = presetChanges;
+      setPermissionUpdate(new Map(presetChanges));
+    }
+  }, [presetChanges]);
 
   const handleChangePermission = (
     location: PermissionLocation,
@@ -85,8 +105,12 @@ export function PermissionGroups({
 
         return draftPowerLevels;
       });
-      await mx.sendStateEvent(room.roomId, StateEvent.RoomPowerLevels as any, editedPowerLevels);
-    }, [mx, room, powerLevels, permissionUpdate, permissionGroups])
+      if (onApply) {
+        await onApply(editedPowerLevels);
+      } else {
+        await mx.sendStateEvent(room.roomId, StateEvent.RoomPowerLevels as any, editedPowerLevels);
+      }
+    }, [mx, room, powerLevels, permissionUpdate, permissionGroups, onApply])
   );
 
   const resetChanges = useCallback(() => {

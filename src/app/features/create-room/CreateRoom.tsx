@@ -42,6 +42,9 @@ import {
 import { RoomType } from '../../../types/matrix/room';
 import { CreateRoomTypeSelector } from '../../components/create-room/CreateRoomTypeSelector';
 import { getRoomIconSrc } from '../../utils/room';
+import { useSpaceRoomPresets } from '../../hooks/useSpaceRoomPresets';
+import { useAccountRoomPresets } from '../../hooks/useAccountRoomPresets';
+import { RoomPreset } from '../../../types/matrix/roomPresets';
 
 const getCreateRoomAccessToIcon = (access: CreateRoomAccess, type?: CreateRoomType) => {
   const isVoiceRoom = type === CreateRoomType.VoiceRoom;
@@ -99,6 +102,16 @@ export function CreateRoomForm({
   const allowKnockRestricted =
     access === CreateRoomAccess.Restricted && knockRestrictedSupported(selectedRoomVersion);
 
+  const spacePresets = useSpaceRoomPresets(space);
+  const accountPresets = useAccountRoomPresets();
+  const [selectedPreset, setSelectedPreset] = useState<RoomPreset | null>(null);
+
+  const currentRoomType = type === CreateRoomType.VoiceRoom ? RoomType.Call : null;
+  const availablePresets = [
+    ...spacePresets.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
+    ...accountPresets.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
+  ];
+
   const handleRoomVersionChange = (version: string) => {
     if (!restrictedSupported(version)) {
       setAccess(CreateRoomAccess.Private);
@@ -151,6 +164,9 @@ export function CreateRoomForm({
       knock: roomKnock,
       allowFederation: federation,
       additionalCreators: allowAdditionalCreators ? additionalCreators : undefined,
+      powerLevelOverride: selectedPreset?.permissions && Object.keys(selectedPreset.permissions).length > 0
+        ? (selectedPreset.permissions as Record<string, unknown>)
+        : undefined,
     }).then((roomId) => {
       if (alive()) {
         onCreate?.(roomId);
@@ -207,6 +223,44 @@ export function CreateRoomForm({
       </Box>
 
       {access === CreateRoomAccess.Public && <CreateRoomAliasInput disabled={disabled} />}
+
+      {availablePresets.length > 0 && (
+        <Box shrink="No" direction="Column" gap="100">
+          <Text size="L400">Use Preset (Optional)</Text>
+          <select
+            value={selectedPreset?.id ?? ''}
+            onChange={(e) => {
+              const preset = availablePresets.find((p) => p.id === e.target.value) ?? null;
+              setSelectedPreset(preset);
+            }}
+            disabled={disabled}
+            style={{
+              padding: '10px 12px',
+              borderRadius: '8px',
+              border: '1px solid var(--cpd-color-border-interactive-secondary)',
+              background: 'var(--cpd-color-bg-canvas-default)',
+              color: 'var(--cpd-color-text-primary)',
+              fontSize: '14px',
+            }}
+          >
+            <option value="">— No preset —</option>
+            {spacePresets.presets
+              .filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (space)
+                </option>
+              ))}
+            {accountPresets.presets
+              .filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} (account)
+                </option>
+              ))}
+          </select>
+        </Box>
+      )}
 
       <Box shrink="No" direction="Column" gap="100">
         <Box gap="200" alignItems="End">

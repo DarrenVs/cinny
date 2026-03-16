@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
-import { Box, Icon, IconButton, Icons, Scroll, Text } from 'folds';
+import React, { useCallback, useState } from 'react';
+import { Box, Chip, Icon, IconButton, Icons, Scroll, Text } from 'folds';
 import { Page, PageContent, PageHeader } from '../../../components/page';
 import { useRoom } from '../../../hooks/useRoom';
 import { usePowerLevels } from '../../../hooks/usePowerLevels';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { StateEvent } from '../../../../types/matrix/room';
 import { usePermissionGroups } from './usePermissionItems';
-import { PermissionGroups, Powers, PowersEditor } from '../../common-settings/permissions';
+import { PermissionGroups, Powers, PowersEditor, PresetApplyFlow } from '../../common-settings/permissions';
 import { useRoomCreators } from '../../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
+import { useSpaceRoomPresets } from '../../../hooks/useSpaceRoomPresets';
+import { useAccountRoomPresets } from '../../../hooks/useAccountRoomPresets';
+import { PermissionLocation, IPowerLevels } from '../../../hooks/usePowerLevels';
+import { PowerLevelTags } from '../../../hooks/usePowerLevelTags';
 
 type PermissionsProps = {
   requestClose: () => void;
@@ -26,13 +30,49 @@ export function Permissions({ requestClose }: PermissionsProps) {
   const permissionGroups = usePermissionGroups();
 
   const [powerEditor, setPowerEditor] = useState(false);
+  const [applyPresetMode, setApplyPresetMode] = useState(false);
+  const [presetChanges, setPresetChanges] = useState<Map<PermissionLocation, number> | undefined>();
+  const [presetTagsToSave, setPresetTagsToSave] = useState<PowerLevelTags | undefined>();
 
-  const handleEditPowers = () => {
-    setPowerEditor(true);
-  };
+  const spacePresets = useSpaceRoomPresets(room);
+  const accountPresets = useAccountRoomPresets();
+
+  const handlePresetApply = useCallback(
+    (resolvedTags: PowerLevelTags | undefined, changes: Map<PermissionLocation, number>) => {
+      setPresetTagsToSave(resolvedTags);
+      setPresetChanges(changes);
+      setApplyPresetMode(false);
+    },
+    []
+  );
+
+  const handleCombinedApply = useCallback(
+    async (editedPowerLevels: IPowerLevels) => {
+      if (presetTagsToSave) {
+        await mx.sendStateEvent(room.roomId, StateEvent.PowerLevelTags as any, presetTagsToSave);
+      }
+      await mx.sendStateEvent(room.roomId, StateEvent.RoomPowerLevels as any, editedPowerLevels);
+      setPresetTagsToSave(undefined);
+      setPresetChanges(undefined);
+    },
+    [mx, room.roomId, presetTagsToSave]
+  );
 
   if (canEditPowers && powerEditor) {
     return <PowersEditor powerLevels={powerLevels} requestClose={() => setPowerEditor(false)} />;
+  }
+
+  if (applyPresetMode) {
+    return (
+      <PresetApplyFlow
+        room={room}
+        permissionGroups={permissionGroups}
+        spacePresets={spacePresets}
+        accountPresets={accountPresets}
+        onApply={handlePresetApply}
+        onCancel={() => setApplyPresetMode(false)}
+      />
+    );
   }
 
   return (
@@ -44,7 +84,19 @@ export function Permissions({ requestClose }: PermissionsProps) {
               Permissions
             </Text>
           </Box>
-          <Box shrink="No">
+          <Box shrink="No" gap="200" alignItems="Center">
+            {canEditPermissions && (
+              <Chip
+                variant={presetChanges ? 'Success' : 'Secondary'}
+                outlined={!!presetChanges}
+                fill="Soft"
+                radii="Pill"
+                before={<Icon src={Icons.Download} size="50" />}
+                onClick={() => setApplyPresetMode(true)}
+              >
+                <Text size="B300">Apply Preset</Text>
+              </Chip>
+            )}
             <IconButton onClick={requestClose} variant="Surface">
               <Icon src={Icons.Cross} />
             </IconButton>
@@ -57,13 +109,17 @@ export function Permissions({ requestClose }: PermissionsProps) {
             <Box direction="Column" gap="700">
               <Powers
                 powerLevels={powerLevels}
-                onEdit={canEditPowers ? handleEditPowers : undefined}
+                onEdit={canEditPowers ? () => setPowerEditor(true) : undefined}
                 permissionGroups={permissionGroups}
+                overrideTags={presetTagsToSave}
+                presetTagsNotice={!!presetTagsToSave}
               />
               <PermissionGroups
                 canEdit={canEditPermissions}
                 powerLevels={powerLevels}
                 permissionGroups={permissionGroups}
+                presetChanges={presetChanges}
+                onApply={presetTagsToSave ? handleCombinedApply : undefined}
               />
             </Box>
           </PageContent>
