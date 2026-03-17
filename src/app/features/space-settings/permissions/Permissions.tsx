@@ -4,15 +4,17 @@ import { Page, PageContent, PageHeader } from '../../../components/page';
 import { useRoom } from '../../../hooks/useRoom';
 import { usePowerLevels } from '../../../hooks/usePowerLevels';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
-import { StateEvent } from '../../../../types/matrix/room';
+import { StateEvent, RoomType } from '../../../../types/matrix/room';
 import { usePermissionGroups } from './usePermissionItems';
-import { PermissionGroups, Powers, PowersEditor, PresetApplyFlow } from '../../common-settings/permissions';
+import { PermissionGroups, Powers, PowersEditor, PresetApplyFlow, SaveToPresetFlow } from '../../common-settings/permissions';
 import { useRoomCreators } from '../../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
 import { useSpaceRoomPresets } from '../../../hooks/useSpaceRoomPresets';
 import { useAccountRoomPresets } from '../../../hooks/useAccountRoomPresets';
 import { PermissionLocation, IPowerLevels } from '../../../hooks/usePowerLevels';
 import { PowerLevelTags } from '../../../hooks/usePowerLevelTags';
+import { useAtomValue } from 'jotai';
+import { roomToParentsAtom } from '../../../state/room/roomToParents';
 
 type PermissionsProps = {
   requestClose: () => void;
@@ -22,6 +24,7 @@ export function Permissions({ requestClose }: PermissionsProps) {
   const room = useRoom();
   const powerLevels = usePowerLevels(room);
   const creators = useRoomCreators(room);
+  const roomToParents = useAtomValue(roomToParentsAtom);
 
   const permissions = useRoomPermissions(creators, powerLevels);
 
@@ -31,10 +34,18 @@ export function Permissions({ requestClose }: PermissionsProps) {
 
   const [powerEditor, setPowerEditor] = useState(false);
   const [applyPresetMode, setApplyPresetMode] = useState(false);
+  const [savePresetMode, setSavePresetMode] = useState(false);
   const [presetChanges, setPresetChanges] = useState<Map<PermissionLocation, number> | undefined>();
   const [presetTagsToSave, setPresetTagsToSave] = useState<PowerLevelTags | undefined>();
 
-  const spacePresets = useSpaceRoomPresets(room);
+  // Find parent space (if this space is nested inside another space)
+  const parentSpaceId = Array.from(roomToParents.get(room.roomId) ?? []).find((id) => {
+    const r = mx.getRoom(id);
+    return r?.getType() === RoomType.Space;
+  });
+  const parentSpace = parentSpaceId ? mx.getRoom(parentSpaceId) ?? undefined : undefined;
+  const ownSpacePresets = useSpaceRoomPresets(room);
+  const parentSpacePresets = useSpaceRoomPresets(parentSpace);
   const accountPresets = useAccountRoomPresets();
 
   const handlePresetApply = useCallback(
@@ -67,10 +78,25 @@ export function Permissions({ requestClose }: PermissionsProps) {
       <PresetApplyFlow
         room={room}
         permissionGroups={permissionGroups}
-        spacePresets={spacePresets}
+        spacePresets={ownSpacePresets}
         accountPresets={accountPresets}
         onApply={handlePresetApply}
         onCancel={() => setApplyPresetMode(false)}
+      />
+    );
+  }
+
+  if (savePresetMode) {
+    return (
+      <SaveToPresetFlow
+        room={room}
+        powerLevels={powerLevels}
+        permissionGroups={permissionGroups}
+        parentSpace={parentSpace}
+        spacePresetsContent={parentSpace ? parentSpacePresets : ownSpacePresets}
+        accountPresetsContent={accountPresets}
+        onSave={() => setSavePresetMode(false)}
+        onCancel={() => setSavePresetMode(false)}
       />
     );
   }
@@ -85,6 +111,15 @@ export function Permissions({ requestClose }: PermissionsProps) {
             </Text>
           </Box>
           <Box shrink="No" gap="200" alignItems="Center">
+            <Chip
+              variant="Secondary"
+              fill="Soft"
+              radii="Pill"
+              before={<Icon src={Icons.Bookmark} size="50" />}
+              onClick={() => setSavePresetMode(true)}
+            >
+              <Text size="B300">Save as Preset</Text>
+            </Chip>
             {canEditPermissions && (
               <Chip
                 variant={presetChanges ? 'Success' : 'Secondary'}
@@ -120,6 +155,7 @@ export function Permissions({ requestClose }: PermissionsProps) {
                 permissionGroups={permissionGroups}
                 presetChanges={presetChanges}
                 onApply={presetTagsToSave ? handleCombinedApply : undefined}
+                hasPendingTags={!!presetTagsToSave}
               />
             </Box>
           </PageContent>

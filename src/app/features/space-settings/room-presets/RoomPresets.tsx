@@ -5,14 +5,11 @@ import { Page, PageContent, PageHeader } from '../../../components/page';
 import { useRoom } from '../../../hooks/useRoom';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { usePowerLevels, useRoomsPowerLevels } from '../../../hooks/usePowerLevels';
-import { useRoomCreators } from '../../../hooks/useRoomCreators';
+import { useRoomCreators, getRoomCreatorsForRoomId } from '../../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
 import { useSpaceRoomPresets } from '../../../hooks/useSpaceRoomPresets';
 import { useAccountRoomPresets } from '../../../hooks/useAccountRoomPresets';
-import { useSpaceChildren, useChildRoomScopeFactory } from '../../../state/hooks/roomList';
-import { allRoomsAtom } from '../../../state/room-list/roomList';
-import { roomToParentsAtom } from '../../../state/room/roomToParents';
-import { useAtomValue } from 'jotai';
+import { useSpaceHierarchy } from '../../../hooks/useSpaceHierarchy';
 import { StateEvent, RoomType } from '../../../../types/matrix/room';
 import { AccountDataEvent } from '../../../../types/matrix/accountData';
 import { RoomPreset, RoomPresetsContent } from '../../../../types/matrix/roomPresets';
@@ -49,32 +46,49 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
   const powerLevels = usePowerLevels(space);
   const creators = useRoomCreators(space);
   const permissions = useRoomPermissions(creators, powerLevels);
-  const roomToParents = useAtomValue(roomToParentsAtom);
 
   const spacePresets = useSpaceRoomPresets(space);
   const accountPresets = useAccountRoomPresets();
 
-  const childRoomIds = useSpaceChildren(
-    allRoomsAtom,
-    space.roomId,
-    useChildRoomScopeFactory(mx, new Set(), roomToParents)
-  );
-  const childRooms = useMemo(
-    () => childRoomIds.map((id) => mx.getRoom(id)).filter((r): r is Room => r !== null),
-    [childRoomIds, mx]
-  );
-  const roomPowerLevels = useRoomsPowerLevels(childRooms);
+  const spaceRooms = useMemo(() => {
+    const set = new Set<string>();
+    mx.getRooms().forEach((r) => { if (r.isSpaceRoom()) set.add(r.roomId); });
+    return set;
+  }, [mx]);
+  const getRoom = useCallback((roomId: string) => mx.getRoom(roomId) ?? undefined, [mx]);
+  const closedCategory = useCallback(() => false, []);
+
+  const hierarchy = useSpaceHierarchy(space.roomId, spaceRooms, getRoom, closedCategory);
+
+  // Flat list of all descendants (sub-spaces + rooms) for power level queries
+  const allDescendants = useMemo(() => {
+    const rooms: Room[] = [];
+    hierarchy.forEach(({ space: spaceItem, rooms: roomItems }) => {
+      if (spaceItem.roomId !== space.roomId) {
+        const r = mx.getRoom(spaceItem.roomId);
+        if (r) rooms.push(r);
+      }
+      roomItems?.forEach((item) => {
+        const r = mx.getRoom(item.roomId);
+        if (r) rooms.push(r);
+      });
+    });
+    return rooms;
+  }, [hierarchy, space.roomId, mx]);
+
+  const roomPowerLevels = useRoomsPowerLevels(allDescendants);
 
   const canManage = canManageSpacePresets(powerLevels, creators, mx.getSafeUserId());
 
   const canModifyRooms = useMemo(() => {
     const map = new Map<string, boolean>();
-    childRooms.forEach((room) => {
+    allDescendants.forEach((room) => {
       const pl = roomPowerLevels.get(room.roomId) ?? {};
-      map.set(room.roomId, canApplyPresetToRoom(pl, new Set(), mx.getSafeUserId()));
+      const roomCreators = getRoomCreatorsForRoomId(mx, room.roomId);
+      map.set(room.roomId, canApplyPresetToRoom(pl, roomCreators, mx.getSafeUserId()));
     });
     return map;
-  }, [childRooms, roomPowerLevels, mx]);
+  }, [allDescendants, roomPowerLevels, mx]);
 
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [editingPreset, setEditingPreset] = useState<RoomPreset | null | 'new'>(null);
@@ -83,8 +97,8 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
   const [selectedRooms, setSelectedRooms] = useState<Set<string>>(new Set());
 
   const selectedRoomObjects = useMemo(
-    () => childRooms.filter((r) => selectedRooms.has(r.roomId)),
-    [childRooms, selectedRooms]
+    () => allDescendants.filter((r) => selectedRooms.has(r.roomId)),
+    [allDescendants, selectedRooms]
   );
 
   const savePresetsToSpace = useCallback(
@@ -148,6 +162,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
     return (
       <PresetPermissionsEditor
         existing={editingPreset === 'new' ? undefined : editingPreset}
+        initialRoomType={editingPreset === 'new' ? activeTab : undefined}
         contextRoom={space}
         onSave={(preset) => handleSavePreset(preset)}
         onCancel={() => setEditingPreset(null)}
@@ -204,7 +219,8 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                   Select rooms to apply this preset to. Only compatible rooms are shown.
                 </Text>
                 <ApplyPresetRooms
-                  childRooms={childRooms}
+                  hierarchy={hierarchy}
+                  rootSpaceId={space.roomId}
                   roomPowerLevels={roomPowerLevels}
                   canModifyRooms={canModifyRooms}
                   preset={applyingPreset}

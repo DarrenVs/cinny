@@ -10,6 +10,8 @@ import {
   PopOut,
   Menu,
   Scroll,
+  Tooltip,
+  TooltipProvider,
   toRem,
   config,
   color,
@@ -181,16 +183,41 @@ export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, pr
           after={
             onEdit && (
               <Box gap="200">
-                <Button
-                  variant="Secondary"
-                  fill="Soft"
-                  size="300"
-                  radii="300"
-                  outlined
-                  onClick={onEdit}
-                >
-                  <Text size="B300">Edit</Text>
-                </Button>
+                {presetTagsNotice ? (
+                  <TooltipProvider
+                    tooltip={
+                      <Tooltip>
+                        <Text size="T200">Apply the preset first, then edit labels.</Text>
+                      </Tooltip>
+                    }
+                  >
+                    {(ref) => (
+                      <Button
+                        ref={ref}
+                        variant="Secondary"
+                        fill="Soft"
+                        size="300"
+                        radii="300"
+                        outlined
+                        disabled
+                        onClick={onEdit}
+                      >
+                        <Text size="B300">Edit</Text>
+                      </Button>
+                    )}
+                  </TooltipProvider>
+                ) : (
+                  <Button
+                    variant="Secondary"
+                    fill="Soft"
+                    size="300"
+                    radii="300"
+                    outlined
+                    onClick={onEdit}
+                  >
+                    <Text size="B300">Edit</Text>
+                  </Button>
+                )}
               </Box>
             )
           }

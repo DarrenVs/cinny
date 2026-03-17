@@ -2,15 +2,24 @@ import React, { useMemo } from 'react';
 import { Avatar, Box, Text, Checkbox, Icon, Icons } from 'folds';
 import { Room } from 'matrix-js-sdk';
 import { IPowerLevels } from '../../../hooks/usePowerLevels';
+import { SpaceHierarchy } from '../../../hooks/useSpaceHierarchy';
 import { RoomAvatar, RoomIcon } from '../../../components/room-avatar';
 import { RoomPreset, PresetApplicationStatus } from '../../../../types/matrix/roomPresets';
 import { getPresetApplicationStatus } from '../../../utils/roomPresets';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { getRoomAvatarUrl } from '../../../utils/room';
+import { RoomType } from '../../../../types/matrix/room';
+
+type RoomItem = {
+  room: Room;
+  isSpaceHeader: boolean;
+  indented: boolean;
+};
 
 type ApplyPresetRoomsProps = {
-  childRooms: Room[];
+  hierarchy: SpaceHierarchy[];
+  rootSpaceId: string;
   roomPowerLevels: Map<string, IPowerLevels>;
   canModifyRooms: Map<string, boolean>;
   preset: RoomPreset;
@@ -54,7 +63,8 @@ function getStatusColor(status: PresetApplicationStatus): string {
 }
 
 export function ApplyPresetRooms({
-  childRooms,
+  hierarchy,
+  rootSpaceId,
   roomPowerLevels,
   canModifyRooms,
   preset,
@@ -64,29 +74,43 @@ export function ApplyPresetRooms({
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
 
+  // Build a flat ordered list mirroring the Lobby hierarchy:
+  // root's direct rooms first (no header), then each sub-space as a header followed by its rooms
+  const flatItems = useMemo((): RoomItem[] => {
+    const result: RoomItem[] = [];
+    hierarchy.forEach(({ space: spaceItem, rooms: roomItems }) => {
+      const isRoot = spaceItem.roomId === rootSpaceId;
+      if (!isRoot) {
+        const spaceRoom = mx.getRoom(spaceItem.roomId);
+        if (spaceRoom) result.push({ room: spaceRoom, isSpaceHeader: true, indented: false });
+      }
+      roomItems?.forEach((item) => {
+        const room = mx.getRoom(item.roomId);
+        if (room) result.push({ room, isSpaceHeader: false, indented: !isRoot });
+      });
+    });
+    return result;
+  }, [hierarchy, rootSpaceId, mx]);
+
   const roomStatuses = useMemo(
     () =>
       new Map(
-        childRooms.map((room) => {
+        flatItems.map(({ room }) => {
           const pl = roomPowerLevels.get(room.roomId) ?? {};
           const canModify = canModifyRooms.get(room.roomId) ?? false;
           const status = getPresetApplicationStatus(room, preset, pl, canModify);
           return [room.roomId, { status, canModify }];
         })
       ),
-    [childRooms, roomPowerLevels, canModifyRooms, preset]
+    [flatItems, roomPowerLevels, canModifyRooms, preset]
   );
 
   const selectableCount = useMemo(
-    () =>
-      childRooms.filter((r) => {
-        const info = roomStatuses.get(r.roomId);
-        return info?.status === 'needs-sync';
-      }).length,
-    [childRooms, roomStatuses]
+    () => flatItems.filter(({ room }) => roomStatuses.get(room.roomId)?.status === 'needs-sync').length,
+    [flatItems, roomStatuses]
   );
 
-  if (childRooms.length === 0) {
+  if (flatItems.length === 0) {
     return (
       <Box
         direction="Column"
@@ -107,7 +131,7 @@ export function ApplyPresetRooms({
       </Text>
 
       <Box direction="Column" gap="100">
-        {childRooms.map((room) => {
+        {flatItems.map(({ room, isSpaceHeader, indented }) => {
           const info = roomStatuses.get(room.roomId);
           const status = info?.status ?? 'type-mismatch';
           const isSelectable = status === 'needs-sync';
@@ -122,16 +146,15 @@ export function ApplyPresetRooms({
                 opacity: isSelectable ? 1 : 0.5,
                 cursor: isSelectable ? 'pointer' : 'default',
                 padding: '8px',
+                paddingLeft: indented ? '32px' : '8px',
                 borderRadius: '6px',
                 backgroundColor: isSelected
                   ? 'var(--cpd-color-bg-subtle-primary)'
+                  : isSpaceHeader
+                  ? 'var(--cpd-color-bg-canvas-default)'
                   : undefined,
               }}
-              onClick={
-                isSelectable
-                  ? () => onSelectionChange(room.roomId, !isSelected)
-                  : undefined
-              }
+              onClick={isSelectable ? () => onSelectionChange(room.roomId, !isSelected) : undefined}
             >
               {isSelectable ? (
                 <Checkbox
@@ -161,7 +184,7 @@ export function ApplyPresetRooms({
                   <b>{room.name || '(No name)'}</b>
                 </Text>
                 <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                  {room.getJoinedMemberCount()} members
+                  {room.getType() === RoomType.Space ? 'Space' : `${room.getJoinedMemberCount()} members`}
                 </Text>
               </Box>
 

@@ -6,7 +6,7 @@ import { usePowerLevels } from '../../../hooks/usePowerLevels';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { StateEvent, RoomType } from '../../../../types/matrix/room';
 import { usePermissionGroups } from './usePermissionItems';
-import { PermissionGroups, Powers, PowersEditor, PresetApplyFlow } from '../../common-settings/permissions';
+import { PermissionGroups, Powers, PowersEditor, PresetApplyFlow, SaveToPresetFlow } from '../../common-settings/permissions';
 import { useRoomCreators } from '../../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
 import { useAtomValue } from 'jotai';
@@ -34,6 +34,7 @@ export function Permissions({ requestClose }: PermissionsProps) {
 
   const [powerEditor, setPowerEditor] = useState(false);
   const [applyPresetMode, setApplyPresetMode] = useState(false);
+  const [savePresetMode, setSavePresetMode] = useState(false);
   const [presetChanges, setPresetChanges] = useState<Map<PermissionLocation, number> | undefined>();
   const [presetTagsToSave, setPresetTagsToSave] = useState<PowerLevelTags | undefined>();
 
@@ -85,6 +86,21 @@ export function Permissions({ requestClose }: PermissionsProps) {
     );
   }
 
+  if (savePresetMode) {
+    return (
+      <SaveToPresetFlow
+        room={room}
+        powerLevels={powerLevels}
+        permissionGroups={permissionGroups}
+        parentSpace={parentSpace}
+        spacePresetsContent={spacePresets}
+        accountPresetsContent={accountPresets}
+        onSave={() => setSavePresetMode(false)}
+        onCancel={() => setSavePresetMode(false)}
+      />
+    );
+  }
+
   return (
     <Page>
       <PageHeader outlined={false}>
@@ -95,6 +111,15 @@ export function Permissions({ requestClose }: PermissionsProps) {
             </Text>
           </Box>
           <Box shrink="No" gap="200" alignItems="Center">
+            <Chip
+              variant="Secondary"
+              fill="Soft"
+              radii="Pill"
+              before={<Icon src={Icons.Bookmark} size="50" />}
+              onClick={() => setSavePresetMode(true)}
+            >
+              <Text size="B300">Save as Preset</Text>
+            </Chip>
             {canEditPermissions && (
               <Chip
                 variant={presetChanges ? 'Success' : 'Secondary'}
@@ -130,6 +155,7 @@ export function Permissions({ requestClose }: PermissionsProps) {
                 permissionGroups={permissionGroups}
                 presetChanges={presetChanges}
                 onApply={presetTagsToSave ? handleCombinedApply : undefined}
+                hasPendingTags={!!presetTagsToSave}
               />
             </Box>
           </PageContent>

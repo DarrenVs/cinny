@@ -7,7 +7,7 @@ import { PermissionLocation } from '../../../hooks/usePowerLevels';
 import { PowerLevelTags } from '../../../hooks/usePowerLevelTags';
 import { RoomPreset, RoomPresetsContent } from '../../../../types/matrix/roomPresets';
 import { PowerColorBadge } from '../../../components/power';
-import { getTagConflicts, mergePresetTags, presetPermissionsToMap } from '../../../utils/roomPresets';
+import { getTagConflicts, isPresetCompatible, mergePresetTags, presetPermissionsToMap } from '../../../utils/roomPresets';
 import { PermissionGroup } from './types';
 
 type PresetApplyFlowProps = {
@@ -40,11 +40,11 @@ export function PresetApplyFlow({
   const roomType = room.getType() ?? null;
 
   const matchingSpacePresets = useMemo(
-    () => (spacePresets?.presets ?? []).filter((p) => p.roomType === roomType),
+    () => (spacePresets?.presets ?? []).filter((p) => isPresetCompatible(p, roomType)),
     [spacePresets, roomType]
   );
   const matchingAccountPresets = useMemo(
-    () => accountPresets.presets.filter((p) => p.roomType === roomType),
+    () => accountPresets.presets.filter((p) => isPresetCompatible(p, roomType)),
     [accountPresets, roomType]
   );
 

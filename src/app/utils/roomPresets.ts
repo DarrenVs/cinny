@@ -6,6 +6,7 @@ import {
   getPermissionPower,
   IPowerLevels,
   PermissionLocation,
+  USER_DEFAULT_LOCATION,
 } from '../hooks/usePowerLevels';
 import { PowerLevelTags } from '../hooks/usePowerLevelTags';
 import { StateEvent } from '../../types/matrix/room';
@@ -152,7 +153,7 @@ export function presetPermissionsToMap(
   };
 
   // users_default
-  tryAdd({ user: true } as PermissionLocation);
+  tryAdd(USER_DEFAULT_LOCATION);
 
   permissionGroups.forEach((group) =>
     group.items.forEach((item) => {
@@ -161,6 +162,49 @@ export function presetPermissionsToMap(
   );
 
   return map;
+}
+
+/**
+ * Build a PresetPermissions that captures every permission visible in the given
+ * permission groups plus users_default, reflecting the current room state.
+ * All fields are explicitly set (no "do not change" entries) so the preset
+ * represents a complete snapshot.
+ */
+export function powerLevelsToPresetPermissions(
+  powerLevels: IPowerLevels,
+  permissionGroups: PermissionGroup[]
+): PresetPermissions {
+  let perms: PresetPermissions = {};
+
+  // users_default
+  perms = setPresetPermissionValue(
+    perms,
+    USER_DEFAULT_LOCATION,
+    powerLevels.users_default ?? 0
+  );
+
+  permissionGroups.forEach((group) =>
+    group.items.forEach((item) => {
+      const power = getPermissionPower(powerLevels, item.location);
+      perms = setPresetPermissionValue(perms, item.location, power);
+    })
+  );
+
+  return perms;
+}
+
+// ─── Compatibility ────────────────────────────────────────────────────────────
+
+/**
+ * A preset is compatible with a room type when:
+ *  - It has no permissions (labels-only preset) → universal, applies to any room type
+ *  - It has permissions → must match the preset's declared roomType exactly
+ */
+export function isPresetCompatible(preset: RoomPreset, roomType: string | null): boolean {
+  const hasPermissions =
+    preset.permissions !== undefined && Object.keys(preset.permissions).length > 0;
+  if (!hasPermissions) return true;
+  return preset.roomType === roomType;
 }
 
 // ─── Status check ─────────────────────────────────────────────────────────────
@@ -174,7 +218,19 @@ export function getPresetApplicationStatus(
   if (!canModify) return 'no-permission';
 
   const roomType = room.getType() ?? null;
-  if (roomType !== preset.roomType) return 'type-mismatch';
+  if (!isPresetCompatible(preset, roomType)) return 'type-mismatch';
+
+  // Check if any power level tag differs
+  if (preset.powerLevelTags && Object.keys(preset.powerLevelTags).length > 0) {
+    const roomTagsEvent = room.currentState.getStateEvents('in.cinny.room.power_level_tags', '');
+    const roomTags: PowerLevelTags = roomTagsEvent?.getContent<PowerLevelTags>() ?? {};
+    for (const [powerStr, presetTag] of Object.entries(preset.powerLevelTags)) {
+      const roomTag = roomTags[Number(powerStr)];
+      if (!roomTag || roomTag.name !== presetTag.name || roomTag.color !== presetTag.color) {
+        return 'needs-sync';
+      }
+    }
+  }
 
   if (!preset.permissions) return 'in-sync';
 

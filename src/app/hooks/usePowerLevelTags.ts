@@ -45,7 +45,7 @@ export const getUsedPowers = (powerLevels: IPowerLevels): Set<number> => {
   return powers;
 };
 
-const DEFAULT_TAGS: PowerLevelTags = {
+export const DEFAULT_TAGS: PowerLevelTags = {
   9001: {
     name: 'Goku',
     color: '#ff6a00',
@@ -74,6 +74,17 @@ const DEFAULT_TAGS: PowerLevelTags = {
     name: 'Muted',
     color: '#888888',
   },
+};
+
+/**
+ * The four standard power level labels Cinny ships with by default.
+ * Manager (150) requires room version 12+. Admin/Moderator/Member work on all versions.
+ */
+export const DEFAULT_PRESET_TAGS: PowerLevelTags = {
+  150: { name: 'Manager', color: '#ff6a7f' },
+  100: { name: 'Admin', color: '#0088ff' },
+  50: { name: 'Moderator', color: '#1fd81f' },
+  0: { name: 'Member', color: '#91cfdf' },
 };
 
 const generateFallbackTag = (powerLevelTags: PowerLevelTags, power: number): MemberPowerTag => {

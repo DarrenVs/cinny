@@ -10,6 +10,7 @@ import {
   getPermissionPower,
   IPowerLevels,
   PermissionLocation,
+  USER_DEFAULT_LOCATION,
 } from '../../../hooks/usePowerLevels';
 import { PermissionGroup } from './types';
 import { getPowerLevelTag, getPowers, usePowerLevelTags } from '../../../hooks/usePowerLevelTags';
@@ -19,10 +20,6 @@ import { StateEvent } from '../../../../types/matrix/room';
 import { PowerSwitcher } from '../../../components/power';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { useAlive } from '../../../hooks/useAlive';
-
-const USER_DEFAULT_LOCATION: PermissionLocation = {
-  user: true,
-};
 
 type PermissionGroupsProps = {
   canEdit: boolean;
@@ -38,6 +35,11 @@ type PermissionGroupsProps = {
    * Useful when the parent wants to combine multiple state event sends (e.g. tags + permissions).
    */
   onApply?: (editedPowerLevels: IPowerLevels) => Promise<void>;
+  /**
+   * When true, forces the Apply banner to appear even if there are no pending
+   * permission changes. Used for label-only presets that only modify power level tags.
+   */
+  hasPendingTags?: boolean;
 };
 export function PermissionGroups({
   powerLevels,
@@ -45,6 +47,7 @@ export function PermissionGroups({
   canEdit,
   presetChanges,
   onApply,
+  hasPendingTags,
 }: PermissionGroupsProps) {
   const mx = useMatrixClient();
   const room = useRoom();
@@ -54,7 +57,7 @@ export function PermissionGroups({
   const maxPower = useMemo(() => Math.max(...getPowers(powerLevelTags)), [powerLevelTags]);
 
   const [permissionUpdate, setPermissionUpdate] = useState<Map<PermissionLocation, number>>(
-    new Map()
+    () => (presetChanges ? new Map(presetChanges) : new Map())
   );
 
   // Reset when permissionGroups reference changes (room switch)
@@ -126,7 +129,7 @@ export function PermissionGroups({
   };
 
   const applyingChanges = applyState.status === AsyncStatus.Loading;
-  const hasChanges = permissionUpdate.size > 0;
+  const hasChanges = permissionUpdate.size > 0 || !!hasPendingTags;
 
   const renderUserGroup = () => {
     const power = getPermissionPower(powerLevels, USER_DEFAULT_LOCATION);
@@ -277,7 +280,11 @@ export function PermissionGroups({
                 </Text>
               ) : (
                 <Text size="T200">
-                  <b>Changes saved! Apply when ready.</b>
+                  <b>
+                    {permissionUpdate.size === 0 && hasPendingTags
+                      ? 'Preset labels ready to apply.'
+                      : 'Changes saved! Apply when ready.'}
+                  </b>
                 </Text>
               )}
             </Box>

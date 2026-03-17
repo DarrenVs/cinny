@@ -5,7 +5,8 @@
       "Bash(xargs grep:*)",
       "Bash(npx tsc:*)",
       "Bash(npm run:*)",
-      "Bash(grep -n \"PowerColorBadge\\\\|PowerIcon\" /c/Users/darre/GitHub/cinny/src/app/components/power/*.tsx)"
+      "Bash(grep -n \"PowerColorBadge\\\\|PowerIcon\" /c/Users/darre/GitHub/cinny/src/app/components/power/*.tsx)",
+      "Bash(grep -r export.*Icons /c/Users/darre/GitHub/cinny/node_modules/folds/dist/index.js)"
     ]
   }
 }

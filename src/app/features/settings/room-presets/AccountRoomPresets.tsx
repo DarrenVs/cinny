@@ -71,6 +71,7 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
     return (
       <PresetPermissionsEditor
         existing={editingPreset === 'new' ? undefined : editingPreset}
+        initialRoomType={editingPreset === 'new' ? activeTab : undefined}
         // No contextRoom in account settings — emoji picker disabled
         onSave={(preset) => handleSavePreset(preset)}
         onCancel={() => setEditingPreset(null)}

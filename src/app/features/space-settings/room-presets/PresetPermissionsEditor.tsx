@@ -41,6 +41,7 @@ import {
   PermissionLocation,
 } from '../../../hooks/usePowerLevels';
 import {
+  DEFAULT_PRESET_TAGS,
   getPowerLevelTag,
   getPowers,
   getUsedPowers,
@@ -85,7 +86,7 @@ const ROOM_TYPE_TABS: RoomTypeTab[] = [
 // ─── Power level tag editor (embedded) ───────────────────────────────────────
 
 type EditPowerTagProps = {
-  maxPower: number;
+  maxPower?: number;
   power?: number;
   tag?: MemberPowerTag;
   contextRoom?: Room;
@@ -176,7 +177,7 @@ function EditPowerTag({ maxPower, power, tag, contextRoom, onSave, onClose }: Ed
               required
             />
           </Box>
-          <Box style={{ maxWidth: toRem(74) }} grow="Yes" direction="Column" gap="100">
+          <Box shrink="No" direction="Column" gap="100">
             <Text size="L400">Power</Text>
             <Input
               defaultValue={power}
@@ -186,11 +187,16 @@ function EditPowerTag({ maxPower, power, tag, contextRoom, onSave, onClose }: Ed
               radii="300"
               type="number"
               placeholder="75"
-              max={maxPower}
               outlined={typeof power === 'number'}
               readOnly={typeof power === 'number'}
               required
+              style={{ maxWidth: toRem(74) }}
             />
+            {typeof power !== 'number' && (
+              <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
+                Values above 100 require room version 12+.
+              </Text>
+            )}
           </Box>
         </Box>
       </Box>
@@ -327,10 +333,6 @@ function PresetPowerLevelsEditor({
   const useAuthentication = useMediaAuthentication();
 
   const usedPowers = useMemo(() => getUsedPowers(permissions as unknown as IPowerLevels), [permissions]);
-  const maxPower = useMemo(
-    () => (usedPowers.size > 0 ? Math.max(...Array.from(usedPowers)) : 100),
-    [usedPowers]
-  );
 
   const [editedTags, setEditedTags] = useState<PowerLevelTags>({ ...powerLevelTags });
   const [deleted, setDeleted] = useState<Set<number>>(new Set());
@@ -416,7 +418,6 @@ function PresetPowerLevelsEditor({
                   />
                   {createTag && (
                     <EditPowerTag
-                      maxPower={maxPower}
                       contextRoom={contextRoom}
                       onSave={handleSaveTag}
                       onClose={() => setCreateTag(false)}
@@ -438,7 +439,6 @@ function PresetPowerLevelsEditor({
                         {(edit: boolean, setEdit: (v: boolean) => void) =>
                           edit ? (
                             <EditPowerTag
-                              maxPower={maxPower}
                               power={power}
                               tag={tag}
                               contextRoom={contextRoom}
@@ -773,6 +773,7 @@ function PresetPermissionGroups({
 
 type PresetPermissionsEditorProps = {
   existing?: RoomPreset;
+  initialRoomType?: string | null;
   contextRoom?: Room;
   onSave: (preset: RoomPreset) => void;
   onCancel: () => void;
@@ -780,15 +781,18 @@ type PresetPermissionsEditorProps = {
 
 export function PresetPermissionsEditor({
   existing,
+  initialRoomType,
   contextRoom,
   onSave,
   onCancel,
 }: PresetPermissionsEditorProps) {
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
-  const [roomType, setRoomType] = useState<string | null>(existing?.roomType ?? null);
+  const [roomType, setRoomType] = useState<string | null>(
+    existing?.roomType ?? initialRoomType ?? null
+  );
   const [powerLevelTags, setPowerLevelTags] = useState<PowerLevelTags>(
-    existing?.powerLevelTags ?? {}
+    existing?.powerLevelTags ?? DEFAULT_PRESET_TAGS
   );
   const [permissions, setPermissions] = useState<PresetPermissions>(existing?.permissions ?? {});
   const [showPowerEditor, setShowPowerEditor] = useState(false);

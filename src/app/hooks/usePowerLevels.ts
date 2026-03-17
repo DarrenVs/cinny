@@ -207,6 +207,9 @@ export type PermissionLocation =
   | EventPermissionLocation
   | NotificationPermissionLocation;
 
+/** Stable shared reference for the "users_default" permission location. */
+export const USER_DEFAULT_LOCATION: PermissionLocation = { user: true };
+
 export const getPermissionPower = (
   powerLevels: IPowerLevels,
   location: PermissionLocation
