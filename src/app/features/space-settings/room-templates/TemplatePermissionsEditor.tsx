@@ -48,14 +48,14 @@ import {
   PowerLevelTags,
 } from '../../../hooks/usePowerLevelTags';
 import { RoomType } from '../../../../types/matrix/room';
-import { RoomPreset, PresetPermissions } from '../../../../types/matrix/roomPresets';
+import { RoomTemplate, TemplatePermissions } from '../../../../types/matrix/roomTemplates';
 import {
-  createPreset,
-  getPresetPermissionValue,
-  setPresetPermissionValue,
-  updatePreset,
-} from '../../../utils/roomPresets';
-import { PresetPowerSwitcher } from '../../../components/power/PresetPowerSwitcher';
+  createTemplate,
+  getTemplatePermissionValue,
+  setTemplatePermissionValue,
+  updateTemplate,
+} from '../../../utils/roomTemplates';
+import { TemplatePowerSwitcher } from '../../../components/power/TemplatePowerSwitcher';
 import { PowerColorBadge, PowerIcon } from '../../../components/power';
 import { HexColorPickerPopOut } from '../../../components/HexColorPickerPopOut';
 import { UseStateProvider } from '../../../components/UseStateProvider';
@@ -314,21 +314,21 @@ function EditPowerTag({ maxPower, power, tag, contextRoom, onSave, onClose }: Ed
 
 // ─── Power levels editor sub-page ─────────────────────────────────────────────
 
-type PresetPowerLevelsEditorProps = {
+type TemplatePowerLevelsEditorProps = {
   powerLevelTags: PowerLevelTags;
-  permissions: PresetPermissions;
+  permissions: TemplatePermissions;
   contextRoom?: Room;
   onChangeTags: (tags: PowerLevelTags) => void;
   requestClose: () => void;
 };
 
-function PresetPowerLevelsEditor({
+function TemplatePowerLevelsEditor({
   powerLevelTags,
   permissions,
   contextRoom,
   onChangeTags,
   requestClose,
-}: PresetPowerLevelsEditorProps) {
+}: TemplatePowerLevelsEditorProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
 
@@ -537,7 +537,7 @@ function PresetPowerLevelsEditor({
                   <Box alignItems="Center" gap="400">
                     <Box grow="Yes">
                       <Text size="T200">
-                        <b>Labels changed. Apply to save them to the preset.</b>
+                        <b>Labels changed. Apply to save them to the template.</b>
                       </Text>
                     </Box>
                     <Button
@@ -559,15 +559,15 @@ function PresetPowerLevelsEditor({
   );
 }
 
-// ─── Preset power levels display (like Powers.tsx but on local state) ─────────
+// ─── Template power levels display (like Powers.tsx but on local state) ─────────
 
-type PresetPowersProps = {
+type TemplatePowersProps = {
   powerLevelTags: PowerLevelTags;
   permissionGroups: PermissionGroup[];
   onEdit: () => void;
 };
 
-function PresetPowers({ powerLevelTags, permissionGroups, onEdit }: PresetPowersProps) {
+function TemplatePowers({ powerLevelTags, permissionGroups, onEdit }: TemplatePowersProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
 
@@ -581,7 +581,7 @@ function PresetPowers({ powerLevelTags, permissionGroups, onEdit }: PresetPowers
       >
         <SettingTile
           title="Power Levels"
-          description="Manage and customize power level labels for this preset."
+          description="Manage and customize power level labels for this template."
           after={
             <Button
               variant="Secondary"
@@ -629,30 +629,30 @@ function PresetPowers({ powerLevelTags, permissionGroups, onEdit }: PresetPowers
 
 // ─── Permission groups rendering ──────────────────────────────────────────────
 
-type PresetPermissionGroupsProps = {
-  permissions: PresetPermissions;
+type TemplatePermissionGroupsProps = {
+  permissions: TemplatePermissions;
   powerLevelTags: PowerLevelTags;
   permissionGroups: PermissionGroup[];
-  onChange: (permissions: PresetPermissions) => void;
+  onChange: (permissions: TemplatePermissions) => void;
 };
 
-function PresetPermissionGroups({
+function TemplatePermissionGroups({
   permissions,
   powerLevelTags,
   permissionGroups,
   onChange,
-}: PresetPermissionGroupsProps) {
+}: TemplatePermissionGroupsProps) {
   const maxPower = useMemo(
     () => (getPowers(powerLevelTags).length > 0 ? Math.max(...getPowers(powerLevelTags)) : 100),
     [powerLevelTags]
   );
 
   const handleChange = (location: PermissionLocation, value: number | undefined) => {
-    onChange(setPresetPermissionValue(permissions, location, value));
+    onChange(setTemplatePermissionValue(permissions, location, value));
   };
 
   const userDefaultLocation: PermissionLocation = { user: true } as PermissionLocation;
-  const userDefaultValue = getPresetPermissionValue(permissions, userDefaultLocation);
+  const userDefaultValue = getTemplatePermissionValue(permissions, userDefaultLocation);
 
   return (
     <>
@@ -669,7 +669,7 @@ function PresetPermissionGroups({
             title="Default Power"
             description="Default power level for all users."
             after={
-              <PresetPowerSwitcher
+              <TemplatePowerSwitcher
                 powerLevelTags={powerLevelTags}
                 value={userDefaultValue}
                 onChange={(v) => handleChange(userDefaultLocation, v)}
@@ -696,7 +696,7 @@ function PresetPermissionGroups({
                     </Text>
                   </Chip>
                 )}
-              </PresetPowerSwitcher>
+              </TemplatePowerSwitcher>
             }
           />
         </SequenceCard>
@@ -707,7 +707,7 @@ function PresetPermissionGroups({
         <Box key={groupIndex} direction="Column" gap="100">
           <Text size="L400">{group.name}</Text>
           {group.items.map((item, itemIndex) => {
-            const value = getPresetPermissionValue(permissions, item.location);
+            const value = getTemplatePermissionValue(permissions, item.location);
             const isSet = value !== undefined;
 
             return (
@@ -722,7 +722,7 @@ function PresetPermissionGroups({
                   title={item.name}
                   description={item.description}
                   after={
-                    <PresetPowerSwitcher
+                    <TemplatePowerSwitcher
                       powerLevelTags={powerLevelTags}
                       value={value}
                       onChange={(v) => handleChange(item.location, v)}
@@ -757,7 +757,7 @@ function PresetPermissionGroups({
                           )}
                         </Chip>
                       )}
-                    </PresetPowerSwitcher>
+                    </TemplatePowerSwitcher>
                   }
                 />
               </SequenceCard>
@@ -771,24 +771,24 @@ function PresetPermissionGroups({
 
 // ─── Main component ────────────────────────────────────────────────────────────
 
-type PresetPermissionsEditorProps = {
-  existing?: RoomPreset;
+type TemplatePermissionsEditorProps = {
+  existing?: RoomTemplate;
   initialRoomType?: string | null;
   contextRoom?: Room;
-  onSave: (preset: RoomPreset) => void;
+  onSave: (template: RoomTemplate) => void;
   onCancel: () => void;
   /** When provided, shows a "Save to Account" chip in the header. */
-  onSaveToAccount?: (preset: RoomPreset) => void;
+  onSaveToAccount?: (template: RoomTemplate) => void;
 };
 
-export function PresetPermissionsEditor({
+export function TemplatePermissionsEditor({
   existing,
   initialRoomType,
   contextRoom,
   onSave,
   onCancel,
   onSaveToAccount,
-}: PresetPermissionsEditorProps) {
+}: TemplatePermissionsEditorProps) {
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [roomType, setRoomType] = useState<string | null>(
@@ -797,7 +797,7 @@ export function PresetPermissionsEditor({
   const [powerLevelTags, setPowerLevelTags] = useState<PowerLevelTags>(
     existing?.powerLevelTags ?? DEFAULT_PRESET_TAGS
   );
-  const [permissions, setPermissions] = useState<PresetPermissions>(existing?.permissions ?? {});
+  const [permissions, setPermissions] = useState<TemplatePermissions>(existing?.permissions ?? {});
   const [showPowerEditor, setShowPowerEditor] = useState(false);
 
   const chatGroups = useChatPermissionGroups(false);
@@ -814,15 +814,15 @@ export function PresetPermissionsEditor({
     const trimmedName = name.trim();
     if (!trimmedName) return;
 
-    const preset = existing
-      ? updatePreset(existing, {
+    const template = existing
+      ? updateTemplate(existing, {
           name: trimmedName,
           description: description.trim() || undefined,
           roomType,
           powerLevelTags: Object.keys(powerLevelTags).length > 0 ? powerLevelTags : undefined,
           permissions: Object.keys(permissions).length > 0 ? permissions : undefined,
         })
-      : createPreset({
+      : createTemplate({
           name: trimmedName,
           description: description.trim() || undefined,
           roomType,
@@ -830,12 +830,12 @@ export function PresetPermissionsEditor({
           permissions: Object.keys(permissions).length > 0 ? permissions : undefined,
         });
 
-    onSave(preset);
+    onSave(template);
   };
 
   if (showPowerEditor) {
     return (
-      <PresetPowerLevelsEditor
+      <TemplatePowerLevelsEditor
         powerLevelTags={powerLevelTags}
         permissions={permissions}
         contextRoom={contextRoom}
@@ -848,18 +848,18 @@ export function PresetPermissionsEditor({
     );
   }
 
-  const buildCurrentPreset = (): RoomPreset | null => {
+  const buildCurrentTemplate = (): RoomTemplate | null => {
     const trimmedName = name.trim();
     if (!trimmedName) return null;
     return existing
-      ? updatePreset(existing, {
+      ? updateTemplate(existing, {
           name: trimmedName,
           description: description.trim() || undefined,
           roomType,
           powerLevelTags: Object.keys(powerLevelTags).length > 0 ? powerLevelTags : undefined,
           permissions: Object.keys(permissions).length > 0 ? permissions : undefined,
         })
-      : createPreset({
+      : createTemplate({
           name: trimmedName,
           description: description.trim() || undefined,
           roomType,
@@ -877,7 +877,7 @@ export function PresetPermissionsEditor({
           </IconButton>
           <Box grow="Yes">
             <Text size="H3" truncate>
-              {existing ? 'Edit Preset' : 'New Preset'}
+              {existing ? 'Edit Template' : 'New Template'}
             </Text>
           </Box>
           <Box shrink="No" gap="200" alignItems="Center">
@@ -888,8 +888,8 @@ export function PresetPermissionsEditor({
                 radii="Pill"
                 before={<Icon src={Icons.ArrowGoRight} size="50" />}
                 onClick={() => {
-                  const preset = buildCurrentPreset();
-                  if (preset) onSaveToAccount(preset);
+                  const template = buildCurrentTemplate();
+                  if (template) onSaveToAccount(template);
                 }}
                 disabled={!name.trim()}
               >
@@ -941,7 +941,7 @@ export function PresetPermissionsEditor({
                   <Input
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="A description of this preset"
+                    placeholder="A description of this template"
                     size="300"
                     variant="Secondary"
                     radii="300"
@@ -950,14 +950,14 @@ export function PresetPermissionsEditor({
               </Box>
 
               {/* Power Levels section */}
-              <PresetPowers
+              <TemplatePowers
                 powerLevelTags={powerLevelTags}
                 permissionGroups={permissionGroups}
                 onEdit={() => setShowPowerEditor(true)}
               />
 
               {/* Permission groups */}
-              <PresetPermissionGroups
+              <TemplatePermissionGroups
                 permissions={permissions}
                 powerLevelTags={powerLevelTags}
                 permissionGroups={permissionGroups}
@@ -1000,7 +1000,7 @@ export function PresetPermissionsEditor({
                       disabled={!name.trim()}
                       onClick={handleSave}
                     >
-                      <Text size="B300">Save Preset</Text>
+                      <Text size="B300">Save Template</Text>
                     </Button>
                   </Box>
                 </Box>

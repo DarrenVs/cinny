@@ -2,17 +2,17 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { Box, Button, Chip, Icon, IconButton, Icons, Scroll, Text } from 'folds';
 import { Page, PageContent, PageHeader } from '../../../components/page';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
-import { useAccountRoomPresets } from '../../../hooks/useAccountRoomPresets';
+import { useAccountRoomTemplates } from '../../../hooks/useAccountRoomTemplates';
 import { AccountDataEvent } from '../../../../types/matrix/accountData';
 import { RoomType } from '../../../../types/matrix/room';
-import { RoomPreset, RoomPresetsContent } from '../../../../types/matrix/roomPresets';
+import { RoomTemplate, RoomTemplatesContent } from '../../../../types/matrix/roomTemplates';
 import {
-  savePreset,
-  deletePreset,
-  getPresetsForRoomType,
-} from '../../../utils/roomPresets';
+  saveTemplate,
+  deleteTemplate,
+  getTemplatesForRoomType,
+} from '../../../utils/roomTemplates';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
-import { PresetPermissionsEditor } from '../../space-settings/room-presets/PresetPermissionsEditor';
+import { TemplatePermissionsEditor } from '../../space-settings/room-templates/TemplatePermissionsEditor';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SettingTile } from '../../../components/setting-tile';
 import { ClickableCardStyle, SequenceCardStyle } from '../../common-settings/styles.css';
@@ -25,59 +25,62 @@ const ROOM_TYPE_TABS: RoomTypeTab[] = [
   { label: 'Space', value: RoomType.Space },
 ];
 
-type AccountRoomPresetsProps = {
+type AccountRoomTemplatesProps = {
   requestClose: () => void;
 };
 
-export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
+export function AccountRoomTemplates({ requestClose }: AccountRoomTemplatesProps) {
   const mx = useMatrixClient();
-  const accountPresets = useAccountRoomPresets();
+  const accountTemplates = useAccountRoomTemplates();
 
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [editingPreset, setEditingPreset] = useState<RoomPreset | null | 'new'>(null);
+  const [editingTemplate, setEditingTemplate] = useState<RoomTemplate | null | 'new'>(null);
 
-  const savePresetsToAccount = useCallback(
-    async (content: RoomPresetsContent) => {
-      await mx.setAccountData(AccountDataEvent.RoomPresets as any, content as any);
+  const saveTemplatesToAccount = useCallback(
+    async (content: RoomTemplatesContent) => {
+      await mx.setAccountData(AccountDataEvent.RoomTemplates as any, content as any);
     },
     [mx]
   );
 
-  const [, handleSavePreset] = useAsyncCallback(
+  const [, handleSaveTemplate] = useAsyncCallback(
     useCallback(
-      async (preset: RoomPreset) => {
-        const updated = savePreset(accountPresets, preset);
-        await savePresetsToAccount(updated);
-        setEditingPreset(null);
+      async (template: RoomTemplate) => {
+        const updated = saveTemplate(accountTemplates, template);
+        await saveTemplatesToAccount(updated);
+        setEditingTemplate(null);
       },
-      [accountPresets, savePresetsToAccount]
+      [accountTemplates, saveTemplatesToAccount]
     )
   );
 
-  const [deleteState, handleDeletePreset] = useAsyncCallback(
+  const [deleteState, handleDeleteTemplate] = useAsyncCallback(
     useCallback(
-      async (presetId: string) => {
-        const updated = deletePreset(accountPresets, presetId);
-        await savePresetsToAccount(updated);
+      async (templateId: string) => {
+        const updated = deleteTemplate(accountTemplates, templateId);
+        await saveTemplatesToAccount(updated);
       },
-      [accountPresets, savePresetsToAccount]
+      [accountTemplates, saveTemplatesToAccount]
     )
   );
 
-  const currentTabPresets = useMemo(
-    () => getPresetsForRoomType(accountPresets, activeTab),
-    [accountPresets, activeTab]
+  const templateSections = useMemo(
+    () =>
+      ROOM_TYPE_TABS.map((tab) => ({
+        ...tab,
+        templates: getTemplatesForRoomType(accountTemplates, tab.value),
+      })).filter((s) => s.templates.length > 0),
+    [accountTemplates]
   );
 
-  // ── Editing preset ──────────────────────────────────────────────────────────
-  if (editingPreset !== null) {
+  // ── Editing template ──────────────────────────────────────────────────────────
+  if (editingTemplate !== null) {
     return (
-      <PresetPermissionsEditor
-        existing={editingPreset === 'new' ? undefined : editingPreset}
-        initialRoomType={editingPreset === 'new' ? activeTab : undefined}
+      <TemplatePermissionsEditor
+        existing={editingTemplate === 'new' ? undefined : editingTemplate}
+        initialRoomType={undefined}
         // No contextRoom in account settings — emoji picker disabled
-        onSave={(preset) => handleSavePreset(preset)}
-        onCancel={() => setEditingPreset(null)}
+        onSave={(template) => handleSaveTemplate(template)}
+        onCancel={() => setEditingTemplate(null)}
       />
     );
   }
@@ -88,7 +91,7 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
         <Box grow="Yes" gap="200" alignItems="Center">
           <Box grow="Yes" alignItems="Center">
             <Text size="H3" truncate>
-              Room Presets
+              Permission Templates
             </Text>
           </Box>
           <Box shrink="No">
@@ -104,23 +107,8 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
           <PageContent>
             <Box direction="Column" gap="500">
               <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                Your personal preset library. Presets here can be pushed into any space you manage.
+                Your personal template library. Templates here can be pushed into any space you manage.
               </Text>
-
-              {/* Room type tabs */}
-              <Box gap="200" wrap="Wrap">
-                {ROOM_TYPE_TABS.map((tab) => (
-                  <Chip
-                    key={tab.label}
-                    variant={activeTab === tab.value ? 'Primary' : 'Secondary'}
-                    onClick={() => setActiveTab(tab.value)}
-                    aria-pressed={activeTab === tab.value}
-                    radii="Pill"
-                  >
-                    <Text size="B300">{tab.label}</Text>
-                  </Chip>
-                ))}
-              </Box>
 
               {/* Create button */}
               <Box gap="200" wrap="Wrap">
@@ -129,14 +117,14 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                   variant="Primary"
                   radii="300"
                   before={<Icon src={Icons.Plus} size="100" />}
-                  onClick={() => setEditingPreset('new')}
+                  onClick={() => setEditingTemplate('new')}
                 >
-                  <Text size="B300">New Preset</Text>
+                  <Text size="B300">New Template</Text>
                 </Button>
               </Box>
 
-              {/* Preset list */}
-              {currentTabPresets.length === 0 ? (
+              {/* Empty state */}
+              {templateSections.length === 0 && (
                 <Box
                   direction="Column"
                   gap="200"
@@ -144,37 +132,42 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                   style={{ padding: '32px', color: 'var(--cpd-color-text-secondary)' }}
                 >
                   <Icon src={Icons.Setting} size="400" />
-                  <Text size="T200">No presets for this room type yet.</Text>
+                  <Text size="T200">No templates yet.</Text>
                   <Button
                     size="300"
                     variant="Secondary"
                     radii="300"
                     before={<Icon src={Icons.Plus} size="100" />}
-                    onClick={() => setEditingPreset('new')}
+                    onClick={() => setEditingTemplate('new')}
                   >
                     <Text size="B300">Create one</Text>
                   </Button>
                 </Box>
-              ) : (
-                <Box direction="Column" gap="300">
-                  {currentTabPresets.map((preset) => (
+              )}
+
+              {/* Grouped sections */}
+              {templateSections.map((section) => (
+                <Box key={section.label} direction="Column" gap="300">
+                  <Text size="L400">{section.label}</Text>
+                  <Box direction="Column" gap="300">
+                  {section.templates.map((template) => (
                     <SequenceCard
-                      key={preset.id}
+                      key={template.id}
                       variant="SurfaceVariant"
                       className={`${SequenceCardStyle} ${ClickableCardStyle}`}
                       direction="Column"
                       gap="300"
                       tabIndex={0}
-                      onClick={() => setEditingPreset(preset)}
+                      onClick={() => setEditingTemplate(template)}
                     >
                       <SettingTile
                         before={<Icon src={Icons.Bookmark} size="200" />}
-                        title={preset.name}
-                        description={preset.description}
+                        title={template.name}
+                        description={template.description}
                         after={
                           <Box gap="100" shrink="No">
-                            {preset.powerLevelTags &&
-                              Object.keys(preset.powerLevelTags).length > 0 && (
+                            {template.powerLevelTags &&
+                              Object.keys(template.powerLevelTags).length > 0 && (
                                 <Box
                                   style={{
                                     padding: '2px 10px',
@@ -186,8 +179,8 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                                   <Text size="T200">Labels</Text>
                                 </Box>
                               )}
-                            {preset.permissions &&
-                              Object.keys(preset.permissions).length > 0 && (
+                            {template.permissions &&
+                              Object.keys(template.permissions).length > 0 && (
                                 <Box
                                   style={{
                                     padding: '2px 10px',
@@ -204,7 +197,7 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                       />
                       <Box gap="200" alignItems="Center" justifyContent="SpaceBetween" wrap="Wrap">
                         <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                          Updated {new Date(preset.updatedAt).toLocaleDateString()}
+                          Updated {new Date(template.updatedAt).toLocaleDateString()}
                         </Text>
                         <Box gap="200" wrap="Wrap">
                           <Button
@@ -214,7 +207,7 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                             before={<Icon src={Icons.Cross} size="100" />}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeletePreset(preset.id);
+                              handleDeleteTemplate(template.id);
                             }}
                             disabled={deleteState.status === AsyncStatus.Loading}
                           >
@@ -224,8 +217,9 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                       </Box>
                     </SequenceCard>
                   ))}
+                  </Box>
                 </Box>
-              )}
+              ))}
             </Box>
           </PageContent>
         </Scroll>

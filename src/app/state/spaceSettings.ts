@@ -4,7 +4,7 @@ export enum SpaceSettingsPage {
   GeneralPage,
   MembersPage,
   PermissionsPage,
-  RoomPresetsPage,
+  RoomTemplatesPage,
   EmojisStickersPage,
   DeveloperToolsPage,
 }

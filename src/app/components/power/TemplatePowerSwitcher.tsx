@@ -9,13 +9,13 @@ import { stopPropagation } from '../../utils/keyboard';
  * Like PowerSelector but with a "Do not change" option at the top.
  * value = undefined means "do not change".
  */
-type PresetPowerSelectorProps = {
+type TemplatePowerSelectorProps = {
   powerLevelTags: PowerLevelTags;
   value: number | undefined;
   onChange: (value: number | undefined) => void;
 };
 
-export const PresetPowerSelector = forwardRef<HTMLDivElement, PresetPowerSelectorProps>(
+export const TemplatePowerSelector = forwardRef<HTMLDivElement, TemplatePowerSelectorProps>(
   ({ powerLevelTags, value, onChange }, ref) => (
     <Menu
       ref={ref}
@@ -66,16 +66,16 @@ export const PresetPowerSelector = forwardRef<HTMLDivElement, PresetPowerSelecto
   )
 );
 
-type PresetPowerSwitcherProps = PresetPowerSelectorProps & {
+type TemplatePowerSwitcherProps = TemplatePowerSelectorProps & {
   children: (handleOpen: MouseEventHandler<HTMLButtonElement>, opened: boolean) => ReactNode;
 };
 
-export function PresetPowerSwitcher({
+export function TemplatePowerSwitcher({
   powerLevelTags,
   value,
   onChange,
   children,
-}: PresetPowerSwitcherProps) {
+}: TemplatePowerSwitcherProps) {
   const [menuCords, setMenuCords] = useState<RectCords>();
 
   const handleOpen: MouseEventHandler<HTMLButtonElement> = (evt) => {
@@ -100,7 +100,7 @@ export function PresetPowerSwitcher({
             escapeDeactivates: stopPropagation,
           }}
         >
-          <PresetPowerSelector
+          <TemplatePowerSelector
             powerLevelTags={powerLevelTags}
             value={value}
             onChange={(v) => {

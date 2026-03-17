@@ -110,13 +110,13 @@ type PowersProps = {
   onEdit?: () => void;
   /**
    * When provided, display these tags instead of the room's tags.
-   * Used when a preset is loaded to preview its labels before applying.
+   * Used when a template is loaded to preview its labels before applying.
    */
   overrideTags?: import('../../../hooks/usePowerLevelTags').PowerLevelTags;
-  /** When true, shows a notice that labels are a preview from a loaded preset */
-  presetTagsNotice?: boolean;
+  /** When true, shows a notice that labels are a preview from a loaded template */
+  templateTagsNotice?: boolean;
 };
-export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, presetTagsNotice }: PowersProps) {
+export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, templateTagsNotice }: PowersProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
   const room = useRoom();
@@ -129,7 +129,7 @@ export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, pr
 
   return (
     <Box direction="Column" gap="100">
-      {presetTagsNotice && (
+      {templateTagsNotice && (
         <Box
           style={{
             padding: '8px 12px',
@@ -138,7 +138,7 @@ export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, pr
           }}
         >
           <Text size="T200">
-            <b>Preview:</b> These labels will be applied from the preset.
+            <b>Preview:</b> These labels will be applied from the template.
           </Text>
         </Box>
       )}
@@ -183,11 +183,11 @@ export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, pr
           after={
             onEdit && (
               <Box gap="200">
-                {presetTagsNotice ? (
+                {templateTagsNotice ? (
                   <TooltipProvider
                     tooltip={
                       <Tooltip>
-                        <Text size="T200">Apply the preset first, then edit labels.</Text>
+                        <Text size="T200">Apply the template first, then edit labels.</Text>
                       </Tooltip>
                     }
                   >

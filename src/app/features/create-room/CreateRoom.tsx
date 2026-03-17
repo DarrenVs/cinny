@@ -42,9 +42,9 @@ import {
 import { RoomType } from '../../../types/matrix/room';
 import { CreateRoomTypeSelector } from '../../components/create-room/CreateRoomTypeSelector';
 import { getRoomIconSrc } from '../../utils/room';
-import { useSpaceRoomPresets } from '../../hooks/useSpaceRoomPresets';
-import { useAccountRoomPresets } from '../../hooks/useAccountRoomPresets';
-import { RoomPreset } from '../../../types/matrix/roomPresets';
+import { useSpaceRoomTemplates } from '../../hooks/useSpaceRoomTemplates';
+import { useAccountRoomTemplates } from '../../hooks/useAccountRoomTemplates';
+import { RoomTemplate } from '../../../types/matrix/roomTemplates';
 
 const getCreateRoomAccessToIcon = (access: CreateRoomAccess, type?: CreateRoomType) => {
   const isVoiceRoom = type === CreateRoomType.VoiceRoom;
@@ -102,14 +102,14 @@ export function CreateRoomForm({
   const allowKnockRestricted =
     access === CreateRoomAccess.Restricted && knockRestrictedSupported(selectedRoomVersion);
 
-  const spacePresets = useSpaceRoomPresets(space);
-  const accountPresets = useAccountRoomPresets();
-  const [selectedPreset, setSelectedPreset] = useState<RoomPreset | null>(null);
+  const spaceTemplates = useSpaceRoomTemplates(space);
+  const accountTemplates = useAccountRoomTemplates();
+  const [selectedTemplate, setSelectedTemplate] = useState<RoomTemplate | null>(null);
 
   const currentRoomType = type === CreateRoomType.VoiceRoom ? RoomType.Call : null;
-  const availablePresets = [
-    ...spacePresets.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
-    ...accountPresets.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
+  const availableTemplates = [
+    ...spaceTemplates.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
+    ...accountTemplates.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
   ];
 
   const handleRoomVersionChange = (version: string) => {
@@ -164,8 +164,8 @@ export function CreateRoomForm({
       knock: roomKnock,
       allowFederation: federation,
       additionalCreators: allowAdditionalCreators ? additionalCreators : undefined,
-      powerLevelOverride: selectedPreset?.permissions && Object.keys(selectedPreset.permissions).length > 0
-        ? (selectedPreset.permissions as Record<string, unknown>)
+      powerLevelOverride: selectedTemplate?.permissions && Object.keys(selectedTemplate.permissions).length > 0
+        ? (selectedTemplate.permissions as Record<string, unknown>)
         : undefined,
     }).then((roomId) => {
       if (alive()) {
@@ -224,14 +224,14 @@ export function CreateRoomForm({
 
       {access === CreateRoomAccess.Public && <CreateRoomAliasInput disabled={disabled} />}
 
-      {availablePresets.length > 0 && (
+      {availableTemplates.length > 0 && (
         <Box shrink="No" direction="Column" gap="100">
-          <Text size="L400">Use Preset (Optional)</Text>
+          <Text size="L400">Use Template (Optional)</Text>
           <select
-            value={selectedPreset?.id ?? ''}
+            value={selectedTemplate?.id ?? ''}
             onChange={(e) => {
-              const preset = availablePresets.find((p) => p.id === e.target.value) ?? null;
-              setSelectedPreset(preset);
+              const template = availableTemplates.find((p) => p.id === e.target.value) ?? null;
+              setSelectedTemplate(template);
             }}
             disabled={disabled}
             style={{
@@ -243,15 +243,15 @@ export function CreateRoomForm({
               fontSize: '14px',
             }}
           >
-            <option value="">— No preset —</option>
-            {spacePresets.presets
+            <option value="">— No template —</option>
+            {spaceTemplates.presets
               .filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0)
               .map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} (space)
                 </option>
               ))}
-            {accountPresets.presets
+            {accountTemplates.presets
               .filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0)
               .map((p) => (
                 <option key={p.id} value={p.id}>

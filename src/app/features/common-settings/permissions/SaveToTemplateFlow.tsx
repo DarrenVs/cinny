@@ -7,43 +7,43 @@ import { IPowerLevels, PermissionLocation } from '../../../hooks/usePowerLevels'
 import { usePowerLevelTags } from '../../../hooks/usePowerLevelTags';
 import { PermissionGroup } from './types';
 import { StateEvent } from '../../../../types/matrix/room';
-import { RoomPresetsContent } from '../../../../types/matrix/roomPresets';
+import { RoomTemplatesContent } from '../../../../types/matrix/roomTemplates';
 import { AccountDataEvent } from '../../../../types/matrix/accountData';
 import {
-  createPreset,
-  powerLevelsToPresetPermissions,
-  savePreset,
-} from '../../../utils/roomPresets';
+  createTemplate,
+  powerLevelsToTemplatePermissions,
+  saveTemplate,
+} from '../../../utils/roomTemplates';
 
-type SaveToPresetFlowProps = {
+type SaveToTemplateFlowProps = {
   room: Room;
   powerLevels: IPowerLevels;
   permissionGroups: PermissionGroup[];
   /** The current space (shown as a save destination when editing space permissions). */
   ownSpace?: Room;
-  ownSpacePresetsContent?: RoomPresetsContent;
+  ownSpaceTemplatesContent?: RoomTemplatesContent;
   /** A parent space (shown as an additional save destination). */
   parentSpace?: Room;
-  spacePresetsContent?: RoomPresetsContent;
-  accountPresetsContent: RoomPresetsContent;
+  spaceTemplatesContent?: RoomTemplatesContent;
+  accountTemplatesContent: RoomTemplatesContent;
   onSave: () => void;
   onCancel: () => void;
 };
 
 type Destination = 'own-space' | 'parent-space' | 'account';
 
-export function SaveToPresetFlow({
+export function SaveToTemplateFlow({
   room,
   powerLevels,
   permissionGroups,
   ownSpace,
-  ownSpacePresetsContent,
+  ownSpaceTemplatesContent,
   parentSpace,
-  spacePresetsContent,
-  accountPresetsContent,
+  spaceTemplatesContent,
+  accountTemplatesContent,
   onSave,
   onCancel,
-}: SaveToPresetFlowProps) {
+}: SaveToTemplateFlowProps) {
   const mx = useMatrixClient();
   const powerLevelTags = usePowerLevelTags(room, powerLevels);
 
@@ -65,45 +65,45 @@ export function SaveToPresetFlow({
     setError(undefined);
 
     try {
-      const permissions = powerLevelsToPresetPermissions(powerLevels, permissionGroups);
+      const permissions = powerLevelsToTemplatePermissions(powerLevels, permissionGroups);
       const tags =
         Object.keys(powerLevelTags).length > 0 ? { ...powerLevelTags } : undefined;
 
-      const preset = createPreset({
+      const template = createTemplate({
         name: trimmed,
         roomType: room.getType() ?? null,
         permissions: Object.keys(permissions).length > 0 ? permissions : undefined,
         powerLevelTags: tags,
       });
 
-      if (destination === 'own-space' && ownSpace && ownSpacePresetsContent) {
-        const newContent = savePreset(ownSpacePresetsContent, preset);
-        await mx.sendStateEvent(ownSpace.roomId, StateEvent.SpaceRoomPresets as any, newContent);
-      } else if (destination === 'parent-space' && parentSpace && spacePresetsContent) {
-        const newContent = savePreset(spacePresetsContent, preset);
+      if (destination === 'own-space' && ownSpace && ownSpaceTemplatesContent) {
+        const newContent = saveTemplate(ownSpaceTemplatesContent, template);
+        await mx.sendStateEvent(ownSpace.roomId, StateEvent.SpaceRoomTemplates as any, newContent);
+      } else if (destination === 'parent-space' && parentSpace && spaceTemplatesContent) {
+        const newContent = saveTemplate(spaceTemplatesContent, template);
         await mx.sendStateEvent(
           parentSpace.roomId,
-          StateEvent.SpaceRoomPresets as any,
+          StateEvent.SpaceRoomTemplates as any,
           newContent
         );
       } else {
-        const newContent = savePreset(accountPresetsContent, preset);
-        await mx.setAccountData(AccountDataEvent.RoomPresets, newContent);
+        const newContent = saveTemplate(accountTemplatesContent, template);
+        await mx.setAccountData(AccountDataEvent.RoomTemplates, newContent);
       }
 
       onSave();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save preset.');
+      setError(e instanceof Error ? e.message : 'Failed to save template.');
       setSaving(false);
     }
   };
 
   const destinationLabel = (() => {
     if (destination === 'own-space' && ownSpace)
-      return `Preset will be available to all rooms in "${ownSpace.name}".`;
+      return `Template will be available to all rooms in "${ownSpace.name}".`;
     if (destination === 'parent-space' && parentSpace)
-      return `Preset will be available to all rooms in "${parentSpace.name}".`;
-    return 'Preset will be available across all your spaces and rooms.';
+      return `Template will be available to all rooms in "${parentSpace.name}".`;
+    return 'Template will be available across all your spaces and rooms.';
   })();
 
   return (
@@ -122,7 +122,7 @@ export function SaveToPresetFlow({
           </Button>
           <Box grow="Yes">
             <Text size="H3" truncate>
-              Save as Preset
+              Save as Template
             </Text>
           </Box>
         </Box>
@@ -133,12 +133,12 @@ export function SaveToPresetFlow({
           <PageContent>
             <Box direction="Column" gap="500">
               <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                Save this room&apos;s current permission configuration as a reusable preset.
+                Save this room&apos;s current permission configuration as a reusable template.
                 Power level labels will be included.
               </Text>
 
               <Box direction="Column" gap="100">
-                <Text size="L400">Preset Name</Text>
+                <Text size="L400">Template Name</Text>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -208,7 +208,7 @@ export function SaveToPresetFlow({
                   before={saving && <Spinner variant="Primary" fill="Solid" size="100" />}
                   onClick={handleSave}
                 >
-                  <Text size="B300">Save Preset</Text>
+                  <Text size="B300">Save Template</Text>
                 </Button>
               </Box>
             </Box>

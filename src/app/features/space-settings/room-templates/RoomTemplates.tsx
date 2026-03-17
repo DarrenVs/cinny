@@ -7,24 +7,24 @@ import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { usePowerLevels, useRoomsPowerLevels } from '../../../hooks/usePowerLevels';
 import { useRoomCreators, getRoomCreatorsForRoomId } from '../../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
-import { useSpaceRoomPresets } from '../../../hooks/useSpaceRoomPresets';
-import { useAccountRoomPresets } from '../../../hooks/useAccountRoomPresets';
+import { useSpaceRoomTemplates } from '../../../hooks/useSpaceRoomTemplates';
+import { useAccountRoomTemplates } from '../../../hooks/useAccountRoomTemplates';
 import { useSpaceHierarchy } from '../../../hooks/useSpaceHierarchy';
 import { StateEvent, RoomType } from '../../../../types/matrix/room';
 import { AccountDataEvent } from '../../../../types/matrix/accountData';
-import { RoomPreset, RoomPresetsContent } from '../../../../types/matrix/roomPresets';
+import { RoomTemplate, RoomTemplatesContent } from '../../../../types/matrix/roomTemplates';
 import {
-  canManageSpacePresets,
-  canApplyPresetToRoom,
-  savePreset,
-  deletePreset,
-  getPresetsForRoomType,
-} from '../../../utils/roomPresets';
+  canManageSpaceTemplates,
+  canApplyTemplateToRoom,
+  saveTemplate,
+  deleteTemplate,
+  getTemplatesForRoomType,
+} from '../../../utils/roomTemplates';
 import { rateLimitedActions } from '../../../utils/matrix';
-import { applyPresetToRoom } from '../../../utils/roomPresets';
+import { applyTemplateToRoom } from '../../../utils/roomTemplates';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
-import { PresetPermissionsEditor } from './PresetPermissionsEditor';
-import { ApplyPresetRooms } from './ApplyPresetRooms';
+import { TemplatePermissionsEditor } from './TemplatePermissionsEditor';
+import { ApplyTemplateRooms } from './ApplyTemplateRooms';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SettingTile } from '../../../components/setting-tile';
 import { ClickableCardStyle, SequenceCardStyle } from '../../common-settings/styles.css';
@@ -39,19 +39,19 @@ const ROOM_TYPE_TABS: RoomTypeTab[] = [
 
 type ApplyStage = 'closed' | 'select-rooms';
 
-type RoomPresetsProps = {
+type RoomTemplatesProps = {
   requestClose: () => void;
 };
 
-export function RoomPresets({ requestClose }: RoomPresetsProps) {
+export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
   const mx = useMatrixClient();
   const space = useRoom();
   const powerLevels = usePowerLevels(space);
   const creators = useRoomCreators(space);
   const permissions = useRoomPermissions(creators, powerLevels);
 
-  const spacePresets = useSpaceRoomPresets(space);
-  const accountPresets = useAccountRoomPresets();
+  const spaceTemplates = useSpaceRoomTemplates(space);
+  const accountTemplates = useAccountRoomTemplates();
 
   const spaceRooms = useMemo(() => {
     const set = new Set<string>();
@@ -81,21 +81,20 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
 
   const roomPowerLevels = useRoomsPowerLevels(allDescendants);
 
-  const canManage = canManageSpacePresets(powerLevels, creators, mx.getSafeUserId());
+  const canManage = canManageSpaceTemplates(powerLevels, creators, mx.getSafeUserId());
 
   const canModifyRooms = useMemo(() => {
     const map = new Map<string, boolean>();
     allDescendants.forEach((room) => {
       const pl = roomPowerLevels.get(room.roomId) ?? {};
       const roomCreators = getRoomCreatorsForRoomId(mx, room.roomId);
-      map.set(room.roomId, canApplyPresetToRoom(pl, roomCreators, mx.getSafeUserId()));
+      map.set(room.roomId, canApplyTemplateToRoom(pl, roomCreators, mx.getSafeUserId()));
     });
     return map;
   }, [allDescendants, roomPowerLevels, mx]);
 
-  const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [editingPreset, setEditingPreset] = useState<RoomPreset | null | 'new'>(null);
-  const [applyingPreset, setApplyingPreset] = useState<RoomPreset | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<RoomTemplate | null | 'new'>(null);
+  const [applyingTemplate, setApplyingTemplate] = useState<RoomTemplate | null>(null);
   const [applyStage, setApplyStage] = useState<ApplyStage>('closed');
   const [selectedRooms, setSelectedRooms] = useState<Set<string>>(new Set());
 
@@ -104,78 +103,82 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
     [allDescendants, selectedRooms]
   );
 
-  const savePresetsToSpace = useCallback(
-    async (content: RoomPresetsContent) => {
-      await mx.sendStateEvent(space.roomId, StateEvent.SpaceRoomPresets as any, content);
+  const saveTemplatesToSpace = useCallback(
+    async (content: RoomTemplatesContent) => {
+      await mx.sendStateEvent(space.roomId, StateEvent.SpaceRoomTemplates as any, content);
     },
     [mx, space.roomId]
   );
 
-  const [saveState, handleSavePreset] = useAsyncCallback(
+  const [saveState, handleSaveTemplate] = useAsyncCallback(
     useCallback(
-      async (preset: RoomPreset) => {
-        const updated = savePreset(spacePresets, preset);
-        await savePresetsToSpace(updated);
-        setEditingPreset(null);
+      async (template: RoomTemplate) => {
+        const updated = saveTemplate(spaceTemplates, template);
+        await saveTemplatesToSpace(updated);
+        setEditingTemplate(null);
       },
-      [spacePresets, savePresetsToSpace]
+      [spaceTemplates, saveTemplatesToSpace]
     )
   );
 
-  const [deleteState, handleDeletePreset] = useAsyncCallback(
+  const [deleteState, handleDeleteTemplate] = useAsyncCallback(
     useCallback(
-      async (presetId: string) => {
-        const updated = deletePreset(spacePresets, presetId);
-        await savePresetsToSpace(updated);
+      async (templateId: string) => {
+        const updated = deleteTemplate(spaceTemplates, templateId);
+        await saveTemplatesToSpace(updated);
       },
-      [spacePresets, savePresetsToSpace]
+      [spaceTemplates, saveTemplatesToSpace]
     )
   );
 
   const [applyState, handleApply] = useAsyncCallback(
     useCallback(async () => {
-      if (!applyingPreset) return;
+      if (!applyingTemplate) return;
       await rateLimitedActions(selectedRoomObjects, async (room) => {
         const pl = roomPowerLevels.get(room.roomId) ?? {};
-        // When applying from space settings, overwrite tags with preset tags (no per-conflict dialog)
-        const resolvedTags = applyingPreset.powerLevelTags;
-        await applyPresetToRoom(mx, room, applyingPreset, pl, resolvedTags);
+        // When applying from space settings, overwrite tags with template tags (no per-conflict dialog)
+        const resolvedTags = applyingTemplate.powerLevelTags;
+        await applyTemplateToRoom(mx, room, applyingTemplate, pl, resolvedTags);
       });
       setApplyStage('closed');
-      setApplyingPreset(null);
+      setApplyingTemplate(null);
       setSelectedRooms(new Set());
-    }, [applyingPreset, selectedRoomObjects, roomPowerLevels, mx])
+    }, [applyingTemplate, selectedRoomObjects, roomPowerLevels, mx])
   );
 
   const handlePushToAccount = useCallback(
-    async (preset: RoomPreset) => {
-      const updated = savePreset(accountPresets, preset);
-      await mx.setAccountData(AccountDataEvent.RoomPresets as any, updated as any);
+    async (template: RoomTemplate) => {
+      const updated = saveTemplate(accountTemplates, template);
+      await mx.setAccountData(AccountDataEvent.RoomTemplates as any, updated as any);
     },
-    [accountPresets, mx]
+    [accountTemplates, mx]
   );
 
-  const currentTabPresets = useMemo(
-    () => getPresetsForRoomType(spacePresets, activeTab),
-    [spacePresets, activeTab]
+  const templateSections = useMemo(
+    () =>
+      ROOM_TYPE_TABS.map((tab) => ({
+        ...tab,
+        templates: getTemplatesForRoomType(spaceTemplates, tab.value),
+      })).filter((s) => s.templates.length > 0),
+    [spaceTemplates]
   );
 
-  // ── Editing preset ──────────────────────────────────────────────────────────
-  if (editingPreset !== null) {
+  // ── Editing template ──────────────────────────────────────────────────────────
+  if (editingTemplate !== null) {
     return (
-      <PresetPermissionsEditor
-        existing={editingPreset === 'new' ? undefined : editingPreset}
-        initialRoomType={editingPreset === 'new' ? activeTab : undefined}
+      <TemplatePermissionsEditor
+        existing={editingTemplate === 'new' ? undefined : editingTemplate}
+        initialRoomType={undefined}
         contextRoom={space}
-        onSave={(preset) => handleSavePreset(preset)}
-        onCancel={() => setEditingPreset(null)}
+        onSave={(template) => handleSaveTemplate(template)}
+        onCancel={() => setEditingTemplate(null)}
         onSaveToAccount={handlePushToAccount}
       />
     );
   }
 
   // ── Apply to rooms — room selection ────────────────────────────────────────
-  if (applyingPreset && applyStage === 'select-rooms') {
+  if (applyingTemplate && applyStage === 'select-rooms') {
     return (
       <Page>
         <PageHeader outlined={false}>
@@ -183,14 +186,14 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
             <IconButton
               onClick={() => {
                 setApplyStage('closed');
-                setApplyingPreset(null);
+                setApplyingTemplate(null);
               }}
               variant="Surface"
             >
               <Icon src={Icons.ArrowLeft} />
             </IconButton>
             <Text size="H3" truncate>
-              Apply &quot;{applyingPreset.name}&quot;
+              Apply &quot;{applyingTemplate.name}&quot;
             </Text>
           </Box>
         </PageHeader>
@@ -198,8 +201,8 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
           <Scroll hideTrack visibility="Hover">
             <PageContent>
               <Box direction="Column" gap="400">
-                {applyingPreset.powerLevelTags &&
-                  Object.keys(applyingPreset.powerLevelTags).length > 0 && (
+                {applyingTemplate.powerLevelTags &&
+                  Object.keys(applyingTemplate.powerLevelTags).length > 0 && (
                     <Box
                       direction="Column"
                       gap="100"
@@ -213,21 +216,21 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                         <b>Power level labels will be updated</b>
                       </Text>
                       <Text size="T200">
-                        This preset includes power level labels. Applying it will update labels in
-                        selected rooms — labels at the same power level as the preset&apos;s labels
+                        This template includes power level labels. Applying it will update labels in
+                        selected rooms — labels at the same power level as the template&apos;s labels
                         will be replaced.
                       </Text>
                     </Box>
                   )}
                 <Text size="T300" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                  Select rooms to apply this preset to. Only compatible rooms are shown.
+                  Select rooms to apply this template to. Only compatible rooms are shown.
                 </Text>
-                <ApplyPresetRooms
+                <ApplyTemplateRooms
                   hierarchy={hierarchy}
                   rootSpaceId={space.roomId}
                   roomPowerLevels={roomPowerLevels}
                   canModifyRooms={canModifyRooms}
-                  preset={applyingPreset}
+                  template={applyingTemplate}
                   selectedRooms={selectedRooms}
                   onSelectionChange={(roomId, selected) => {
                     setSelectedRooms((prev) => {
@@ -241,7 +244,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
 
                 {applyState.status === AsyncStatus.Error && (
                   <Text size="T200" style={{ color: 'var(--cpd-color-text-critical-primary)' }}>
-                    Failed to apply preset. Please try again.
+                    Failed to apply template. Please try again.
                   </Text>
                 )}
 
@@ -250,7 +253,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                     variant="Secondary"
                     onClick={() => {
                       setApplyStage('closed');
-                      setApplyingPreset(null);
+                      setApplyingTemplate(null);
                     }}
                   >
                     <Text size="B300">Cancel</Text>
@@ -287,7 +290,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
         <Box grow="Yes" gap="200" alignItems="Center">
           <Box grow="Yes" alignItems="Center">
             <Text size="H3" truncate>
-              Room Presets
+              Permission Templates
             </Text>
           </Box>
           <Box shrink="No">
@@ -302,21 +305,6 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
         <Scroll hideTrack visibility="Hover">
           <PageContent>
             <Box direction="Column" gap="500">
-              {/* Room type tabs */}
-              <Box gap="200" wrap="Wrap">
-                {ROOM_TYPE_TABS.map((tab) => (
-                  <Chip
-                    key={tab.label}
-                    variant={activeTab === tab.value ? 'Primary' : 'Secondary'}
-                    onClick={() => setActiveTab(tab.value)}
-                    aria-pressed={activeTab === tab.value}
-                    radii="Pill"
-                  >
-                    <Text size="B300">{tab.label}</Text>
-                  </Chip>
-                ))}
-              </Box>
-
               {/* Action buttons */}
               {canManage && (
                 <Box gap="200" wrap="Wrap">
@@ -325,15 +313,15 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                     variant="Primary"
                     radii="300"
                     before={<Icon src={Icons.Plus} size="100" />}
-                    onClick={() => setEditingPreset('new')}
+                    onClick={() => setEditingTemplate('new')}
                   >
-                    <Text size="B300">New Preset</Text>
+                    <Text size="B300">New Template</Text>
                   </Button>
                 </Box>
               )}
 
-              {/* Preset list */}
-              {currentTabPresets.length === 0 ? (
+              {/* Empty state */}
+              {templateSections.length === 0 && (
                 <Box
                   direction="Column"
                   gap="200"
@@ -341,39 +329,44 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                   style={{ padding: '32px', color: 'var(--cpd-color-text-secondary)' }}
                 >
                   <Icon src={Icons.Setting} size="400" />
-                  <Text size="T200">No presets for this room type yet.</Text>
+                  <Text size="T200">No templates yet.</Text>
                   {canManage && (
                     <Button
                       size="300"
                       variant="Secondary"
                       radii="300"
                       before={<Icon src={Icons.Plus} size="100" />}
-                      onClick={() => setEditingPreset('new')}
+                      onClick={() => setEditingTemplate('new')}
                     >
                       <Text size="B300">Create one</Text>
                     </Button>
                   )}
                 </Box>
-              ) : (
-                <Box direction="Column" gap="300">
-                  {currentTabPresets.map((preset) => (
+              )}
+
+              {/* Grouped sections */}
+              {templateSections.map((section) => (
+                <Box key={section.label} direction="Column" gap="300">
+                  <Text size="L400">{section.label}</Text>
+                  <Box direction="Column" gap="300">
+                  {section.templates.map((template) => (
                     <SequenceCard
-                      key={preset.id}
+                      key={template.id}
                       variant="SurfaceVariant"
                       className={`${SequenceCardStyle} ${canManage ? ClickableCardStyle : ''}`}
                       direction="Column"
                       gap="300"
                       tabIndex={canManage ? 0 : undefined}
-                      onClick={canManage ? () => setEditingPreset(preset) : undefined}
+                      onClick={canManage ? () => setEditingTemplate(template) : undefined}
                     >
                       <SettingTile
                         before={<Icon src={Icons.Bookmark} size="200" />}
-                        title={preset.name}
-                        description={preset.description}
+                        title={template.name}
+                        description={template.description}
                         after={
                           <Box gap="100" shrink="No">
-                            {preset.powerLevelTags &&
-                              Object.keys(preset.powerLevelTags).length > 0 && (
+                            {template.powerLevelTags &&
+                              Object.keys(template.powerLevelTags).length > 0 && (
                                 <Box
                                   style={{
                                     padding: '2px 10px',
@@ -385,8 +378,8 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                                   <Text size="T200">Labels</Text>
                                 </Box>
                               )}
-                            {preset.permissions &&
-                              Object.keys(preset.permissions).length > 0 && (
+                            {template.permissions &&
+                              Object.keys(template.permissions).length > 0 && (
                                 <Box
                                   style={{
                                     padding: '2px 10px',
@@ -403,7 +396,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                       />
                       <Box gap="200" alignItems="Center" justifyContent="SpaceBetween" wrap="Wrap">
                         <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                          Updated {new Date(preset.updatedAt).toLocaleDateString()}
+                          Updated {new Date(template.updatedAt).toLocaleDateString()}
                         </Text>
                         {canManage && (
                           <Box gap="200" wrap="Wrap">
@@ -414,7 +407,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                               before={<Icon src={Icons.ArrowTop} size="100" />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setApplyingPreset(preset);
+                                setApplyingTemplate(template);
                                 setSelectedRooms(new Set());
                                 setApplyStage('select-rooms');
                               }}
@@ -428,7 +421,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                               before={<Icon src={Icons.Cross} size="100" />}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDeletePreset(preset.id);
+                                handleDeleteTemplate(template.id);
                               }}
                               disabled={deleteState.status === AsyncStatus.Loading}
                             >
@@ -439,8 +432,9 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                       </Box>
                     </SequenceCard>
                   ))}
+                  </Box>
                 </Box>
-              )}
+              ))}
             </Box>
           </PageContent>
         </Scroll>

@@ -30,7 +30,7 @@ import { Devices } from './devices';
 import { EmojisStickers } from './emojis-stickers';
 import { DeveloperTools } from './developer-tools';
 import { About } from './about';
-import { AccountRoomPresets } from './room-presets';
+import { AccountRoomTemplates } from './room-templates';
 import { UseStateProvider } from '../../components/UseStateProvider';
 import { stopPropagation } from '../../utils/keyboard';
 import { LogoutDialog } from '../../components/LogoutDialog';
@@ -41,7 +41,7 @@ export enum SettingsPages {
   NotificationPage,
   DevicesPage,
   EmojisStickersPage,
-  RoomPresetsPage,
+  RoomTemplatesPage,
   DeveloperToolsPage,
   AboutPage,
 }
@@ -81,8 +81,8 @@ const useSettingsMenuItems = (): SettingsMenuItem[] =>
         icon: Icons.Smile,
       },
       {
-        page: SettingsPages.RoomPresetsPage,
-        name: 'Room Presets',
+        page: SettingsPages.RoomTemplatesPage,
+        name: 'Permission Templates',
         icon: Icons.Bookmark,
       },
       {
@@ -232,8 +232,8 @@ export function Settings({ initialPage, requestClose }: SettingsProps) {
       {activePage === SettingsPages.EmojisStickersPage && (
         <EmojisStickers requestClose={handlePageRequestClose} />
       )}
-      {activePage === SettingsPages.RoomPresetsPage && (
-        <AccountRoomPresets requestClose={handlePageRequestClose} />
+      {activePage === SettingsPages.RoomTemplatesPage && (
+        <AccountRoomTemplates requestClose={handlePageRequestClose} />
       )}
       {activePage === SettingsPages.DeveloperToolsPage && (
         <DeveloperTools requestClose={handlePageRequestClose} />

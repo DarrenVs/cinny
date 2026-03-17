@@ -5,19 +5,19 @@ import { Page, PageContent, PageHeader } from '../../../components/page';
 import { Room } from 'matrix-js-sdk';
 import { PermissionLocation } from '../../../hooks/usePowerLevels';
 import { PowerLevelTags } from '../../../hooks/usePowerLevelTags';
-import { RoomPreset, RoomPresetsContent } from '../../../../types/matrix/roomPresets';
+import { RoomTemplate, RoomTemplatesContent } from '../../../../types/matrix/roomTemplates';
 import { PowerColorBadge } from '../../../components/power';
-import { getTagConflicts, isPresetCompatible, mergePresetTags, presetPermissionsToMap } from '../../../utils/roomPresets';
+import { getTagConflicts, isTemplateCompatible, mergeTemplateTags, templatePermissionsToMap } from '../../../utils/roomTemplates';
 import { PermissionGroup } from './types';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SettingTile } from '../../../components/setting-tile';
 import { SequenceCardStyle } from '../styles.css';
 
-type PresetApplyFlowProps = {
+type TemplateApplyFlowProps = {
   room: Room;
   permissionGroups: PermissionGroup[];
-  spacePresets?: RoomPresetsContent;
-  accountPresets: RoomPresetsContent;
+  spaceTemplates?: RoomTemplatesContent;
+  accountTemplates: RoomTemplatesContent;
   onApply: (
     resolvedTags: PowerLevelTags | undefined,
     changes: Map<PermissionLocation, number>
@@ -27,73 +27,73 @@ type PresetApplyFlowProps = {
 
 type FlowStep = 'select' | 'conflicts';
 
-export function PresetApplyFlow({
+export function TemplateApplyFlow({
   room,
   permissionGroups,
-  spacePresets,
-  accountPresets,
+  spaceTemplates,
+  accountTemplates,
   onApply,
   onCancel,
-}: PresetApplyFlowProps) {
+}: TemplateApplyFlowProps) {
   const [step, setStep] = useState<FlowStep>('select');
-  const [selectedPreset, setSelectedPreset] = useState<RoomPreset | null>(null);
-  // resolutions: power -> 'preset' | 'room'  (default: 'preset')
-  const [resolutions, setResolutions] = useState<Record<number, 'preset' | 'room'>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<RoomTemplate | null>(null);
+  // resolutions: power -> 'template' | 'room'  (default: 'template')
+  const [resolutions, setResolutions] = useState<Record<number, 'template' | 'room'>>({});
 
   const roomType = room.getType() ?? null;
 
-  const matchingSpacePresets = useMemo(
-    () => (spacePresets?.presets ?? []).filter((p) => isPresetCompatible(p, roomType)),
-    [spacePresets, roomType]
+  const matchingSpaceTemplates = useMemo(
+    () => (spaceTemplates?.presets ?? []).filter((p) => isTemplateCompatible(p, roomType)),
+    [spaceTemplates, roomType]
   );
-  const matchingAccountPresets = useMemo(
-    () => accountPresets.presets.filter((p) => isPresetCompatible(p, roomType)),
-    [accountPresets, roomType]
+  const matchingAccountTemplates = useMemo(
+    () => accountTemplates.presets.filter((p) => isTemplateCompatible(p, roomType)),
+    [accountTemplates, roomType]
   );
 
   const conflicts = useMemo(() => {
-    if (!selectedPreset?.powerLevelTags) return [];
+    if (!selectedTemplate?.powerLevelTags) return [];
     // Get room's current power level tags from its state events
     const tagsEvent = room.currentState.getStateEvents('in.cinny.room.power_level_tags', '');
     const roomTags: PowerLevelTags = tagsEvent?.getContent<PowerLevelTags>() ?? {};
-    return getTagConflicts(roomTags, selectedPreset.powerLevelTags);
-  }, [selectedPreset, room]);
+    return getTagConflicts(roomTags, selectedTemplate.powerLevelTags);
+  }, [selectedTemplate, room]);
 
-  const handleSelectPreset = (preset: RoomPreset) => {
-    setSelectedPreset(preset);
+  const handleSelectTemplate = (template: RoomTemplate) => {
+    setSelectedTemplate(template);
     setResolutions({});
 
     const hasConflicts = (() => {
-      if (!preset.powerLevelTags) return false;
+      if (!template.powerLevelTags) return false;
       const tagsEvent = room.currentState.getStateEvents('in.cinny.room.power_level_tags', '');
       const roomTags: PowerLevelTags = tagsEvent?.getContent<PowerLevelTags>() ?? {};
-      return getTagConflicts(roomTags, preset.powerLevelTags).length > 0;
+      return getTagConflicts(roomTags, template.powerLevelTags).length > 0;
     })();
 
     if (hasConflicts) {
       setStep('conflicts');
     } else {
       // No conflicts — apply directly
-      applyPreset(preset, {});
+      applyTemplate(template, {});
     }
   };
 
-  const applyPreset = (preset: RoomPreset, res: Record<number, 'preset' | 'room'>) => {
+  const applyTemplate = (template: RoomTemplate, res: Record<number, 'template' | 'room'>) => {
     const tagsEvent = room.currentState.getStateEvents('in.cinny.room.power_level_tags', '');
     const roomTags: PowerLevelTags = tagsEvent?.getContent<PowerLevelTags>() ?? {};
 
-    const resolvedTags = preset.powerLevelTags
-      ? mergePresetTags(roomTags, preset.powerLevelTags, res)
+    const resolvedTags = template.powerLevelTags
+      ? mergeTemplateTags(roomTags, template.powerLevelTags, res)
       : undefined;
 
-    const changes = presetPermissionsToMap(preset.permissions ?? {}, permissionGroups);
+    const changes = templatePermissionsToMap(template.permissions ?? {}, permissionGroups);
 
     onApply(resolvedTags, changes);
   };
 
-  // ── Step: Preset selector ────────────────────────────────────────────────
+  // ── Step: Template selector ────────────────────────────────────────────────
   if (step === 'select') {
-    const hasAny = matchingSpacePresets.length > 0 || matchingAccountPresets.length > 0;
+    const hasAny = matchingSpaceTemplates.length > 0 || matchingAccountTemplates.length > 0;
 
     return (
       <Page>
@@ -111,7 +111,7 @@ export function PresetApplyFlow({
             </Button>
             <Box grow="Yes">
               <Text size="H3" truncate>
-                Apply Preset
+                Apply Template
               </Text>
             </Box>
           </Box>
@@ -122,7 +122,7 @@ export function PresetApplyFlow({
             <PageContent>
               <Box direction="Column" gap="500">
                 <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                  Select a preset to load into the permissions editor. Only presets matching this
+                  Select a template to load into the permissions editor. Only templates matching this
                   room type are shown.
                 </Text>
 
@@ -134,31 +134,31 @@ export function PresetApplyFlow({
                     style={{ padding: '32px', color: 'var(--cpd-color-text-secondary)' }}
                   >
                     <Icon src={Icons.Setting} size="400" />
-                    <Text size="T200">No matching presets found.</Text>
+                    <Text size="T200">No matching templates found.</Text>
                   </Box>
                 )}
 
-                {matchingSpacePresets.length > 0 && (
+                {matchingSpaceTemplates.length > 0 && (
                   <Box direction="Column" gap="200">
-                    <Text size="L400">Space Presets</Text>
-                    {matchingSpacePresets.map((preset) => (
-                      <PresetSelectCard
-                        key={preset.id}
-                        preset={preset}
-                        onSelect={() => handleSelectPreset(preset)}
+                    <Text size="L400">Space Templates</Text>
+                    {matchingSpaceTemplates.map((template) => (
+                      <TemplateSelectCard
+                        key={template.id}
+                        template={template}
+                        onSelect={() => handleSelectTemplate(template)}
                       />
                     ))}
                   </Box>
                 )}
 
-                {matchingAccountPresets.length > 0 && (
+                {matchingAccountTemplates.length > 0 && (
                   <Box direction="Column" gap="200">
-                    <Text size="L400">Account Presets</Text>
-                    {matchingAccountPresets.map((preset) => (
-                      <PresetSelectCard
-                        key={preset.id}
-                        preset={preset}
-                        onSelect={() => handleSelectPreset(preset)}
+                    <Text size="L400">Account Templates</Text>
+                    {matchingAccountTemplates.map((template) => (
+                      <TemplateSelectCard
+                        key={template.id}
+                        template={template}
+                        onSelect={() => handleSelectTemplate(template)}
                       />
                     ))}
                   </Box>
@@ -199,13 +199,13 @@ export function PresetApplyFlow({
           <PageContent>
             <Box direction="Column" gap="500">
               <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                The preset has labels that conflict with labels already in this room. Choose which
+                The template has labels that conflict with labels already in this room. Choose which
                 label to keep for each conflict.
               </Text>
 
               <Box direction="Column" gap="300">
                 {conflicts.map((conflict) => {
-                  const resolution = resolutions[conflict.power] ?? 'preset';
+                  const resolution = resolutions[conflict.power] ?? 'template';
                   return (
                     <SequenceCard
                       key={conflict.power}
@@ -217,18 +217,18 @@ export function PresetApplyFlow({
                       <SettingTile title={`Power level ${conflict.power}`} />
                       <Box gap="200" wrap="Wrap">
                         <Chip
-                          variant={resolution === 'preset' ? 'Primary' : 'Secondary'}
+                          variant={resolution === 'template' ? 'Primary' : 'Secondary'}
                           radii="300"
-                          before={<PowerColorBadge color={conflict.presetTag.color} />}
+                          before={<PowerColorBadge color={conflict.templateTag.color} />}
                           onClick={() =>
-                            setResolutions((prev) => ({ ...prev, [conflict.power]: 'preset' }))
+                            setResolutions((prev) => ({ ...prev, [conflict.power]: 'template' }))
                           }
-                          aria-pressed={resolution === 'preset'}
+                          aria-pressed={resolution === 'template'}
                         >
                           <Text size="B300">
-                            {conflict.presetTag.name}{' '}
+                            {conflict.templateTag.name}{' '}
                             <Text as="span" size="T200">
-                              (preset)
+                              (template)
                             </Text>
                           </Text>
                         </Chip>
@@ -262,7 +262,7 @@ export function PresetApplyFlow({
                   variant="Primary"
                   radii="300"
                   onClick={() => {
-                    if (selectedPreset) applyPreset(selectedPreset, resolutions);
+                    if (selectedTemplate) applyTemplate(selectedTemplate, resolutions);
                   }}
                 >
                   <Text size="B300">Continue</Text>
@@ -276,14 +276,14 @@ export function PresetApplyFlow({
   );
 }
 
-// ─── Small card component for preset selection ────────────────────────────────
+// ─── Small card component for template selection ────────────────────────────────
 
-type PresetSelectCardProps = {
-  preset: RoomPreset;
+type TemplateSelectCardProps = {
+  template: RoomTemplate;
   onSelect: () => void;
 };
 
-function PresetSelectCard({ preset, onSelect }: PresetSelectCardProps) {
+function TemplateSelectCard({ template, onSelect }: TemplateSelectCardProps) {
   return (
     <SequenceCard
       as="button"
@@ -296,11 +296,11 @@ function PresetSelectCard({ preset, onSelect }: PresetSelectCardProps) {
     >
       <SettingTile
         before={<Icon src={Icons.Bookmark} size="200" />}
-        title={preset.name}
-        description={preset.description}
+        title={template.name}
+        description={template.description}
         after={
           <Box gap="100" shrink="No">
-            {preset.powerLevelTags && Object.keys(preset.powerLevelTags).length > 0 && (
+            {template.powerLevelTags && Object.keys(template.powerLevelTags).length > 0 && (
               <Box
                 style={{
                   padding: '2px 10px',
@@ -312,7 +312,7 @@ function PresetSelectCard({ preset, onSelect }: PresetSelectCardProps) {
                 <Text size="T200">Labels</Text>
               </Box>
             )}
-            {preset.permissions && Object.keys(preset.permissions).length > 0 && (
+            {template.permissions && Object.keys(template.permissions).length > 0 && (
               <Box
                 style={{
                   padding: '2px 10px',

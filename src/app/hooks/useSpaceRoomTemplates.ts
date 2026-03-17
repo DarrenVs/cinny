@@ -2,9 +2,9 @@ import { Room } from 'matrix-js-sdk';
 import { useMemo } from 'react';
 import { useStateEvent } from './useStateEvent';
 import { StateEvent } from '../../types/matrix/room';
-import { RoomPresetsContent } from '../../types/matrix/roomPresets';
+import { RoomTemplatesContent } from '../../types/matrix/roomTemplates';
 
-const EMPTY: RoomPresetsContent = { presets: [] };
+const EMPTY: RoomTemplatesContent = { presets: [] };
 
 /**
  * A stable dummy Room used when space is undefined. It implements the minimal
@@ -22,12 +22,12 @@ const DUMMY_ROOM: Room = {
 } as unknown as Room;
 
 // Accepts undefined so callers don't need to guard against missing space
-export function useSpaceRoomPresets(space: Room | undefined): RoomPresetsContent {
-  const event = useStateEvent(space ?? DUMMY_ROOM, StateEvent.SpaceRoomPresets as any);
+export function useSpaceRoomTemplates(space: Room | undefined): RoomTemplatesContent {
+  const event = useStateEvent(space ?? DUMMY_ROOM, StateEvent.SpaceRoomTemplates as any);
 
   return useMemo(() => {
     if (!space) return EMPTY;
-    const content = event?.getContent<RoomPresetsContent>();
+    const content = event?.getContent<RoomTemplatesContent>();
     if (!content || !Array.isArray(content.presets)) return EMPTY;
     return content;
   }, [space, event]);

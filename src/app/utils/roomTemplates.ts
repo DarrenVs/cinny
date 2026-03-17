@@ -1,6 +1,8 @@
 import produce from 'immer';
 import { MatrixClient, Room } from 'matrix-js-sdk';
 import { getRoomPermissionsAPI } from '../hooks/useRoomPermissions';
+import { getRoomCreatorsForRoomId } from '../hooks/useRoomCreators';
+import { getStateEvent } from './room';
 import {
   applyPermissionPower,
   getPermissionPower,
@@ -11,27 +13,40 @@ import {
 import { PowerLevelTags } from '../hooks/usePowerLevelTags';
 import { StateEvent } from '../../types/matrix/room';
 import {
-  PresetApplicationStatus,
-  PresetPermissions,
-  RoomPreset,
-  RoomPresetsContent,
-} from '../../types/matrix/roomPresets';
+  TemplateApplicationStatus,
+  TemplatePermissions,
+  RoomTemplate,
+  RoomTemplatesContent,
+} from '../../types/matrix/roomTemplates';
 import { PermissionGroup } from '../features/common-settings/permissions/types';
 
 // ─── Permission checks ────────────────────────────────────────────────────────
 
-export function canManageSpacePresets(
+export function canManageSpaceTemplates(
   powerLevels: IPowerLevels,
   creators: Set<string>,
   userId: string
 ): boolean {
   return getRoomPermissionsAPI(creators, powerLevels).stateEvent(
-    StateEvent.SpaceRoomPresets,
+    StateEvent.SpaceRoomTemplates,
     userId
   );
 }
 
-export function canApplyPresetToRoom(
+/** Synchronous version — safe to call outside of hooks for conditional space checks. */
+export function canManageTemplatesInSpace(
+  mx: MatrixClient,
+  space: Room | undefined,
+  userId: string
+): boolean {
+  if (!space) return false;
+  const plEvent = getStateEvent(space, StateEvent.RoomPowerLevels);
+  const powerLevels = plEvent?.getContent<IPowerLevels>() ?? {};
+  const creators = getRoomCreatorsForRoomId(mx, space.roomId);
+  return canManageSpaceTemplates(powerLevels, creators, userId);
+}
+
+export function canApplyTemplateToRoom(
   powerLevels: IPowerLevels,
   creators: Set<string>,
   userId: string
@@ -42,19 +57,19 @@ export function canApplyPresetToRoom(
   );
 }
 
-// ─── PermissionLocation ↔ PresetPermissions mapping ──────────────────────────
+// ─── PermissionLocation ↔ TemplatePermissions mapping ──────────────────────────
 
 /**
- * Read the value for a PermissionLocation from PresetPermissions.
- * Returns undefined if that permission is not set in the preset ("do not change").
+ * Read the value for a PermissionLocation from TemplatePermissions.
+ * Returns undefined if that permission is not set in the template ("do not change").
  */
-export function getPresetPermissionValue(
-  permissions: PresetPermissions,
+export function getTemplatePermissionValue(
+  permissions: TemplatePermissions,
   location: PermissionLocation
 ): number | undefined {
   if ('user' in location && !location.key) return permissions.users_default;
   if ('action' in location) {
-    const key = location.key as keyof PresetPermissions;
+    const key = location.key as keyof TemplatePermissions;
     return permissions[key] as number | undefined;
   }
   if ('notification' in location) return permissions.notifications?.[location.key];
@@ -68,17 +83,17 @@ export function getPresetPermissionValue(
 }
 
 /**
- * Set (or clear by passing undefined) a permission value in PresetPermissions.
+ * Set (or clear by passing undefined) a permission value in TemplatePermissions.
  */
-export function setPresetPermissionValue(
-  permissions: PresetPermissions,
+export function setTemplatePermissionValue(
+  permissions: TemplatePermissions,
   location: PermissionLocation,
   value: number | undefined
-): PresetPermissions {
+): TemplatePermissions {
   const next = { ...permissions };
 
-  const setOrDelete = <K extends keyof PresetPermissions>(
-    obj: PresetPermissions,
+  const setOrDelete = <K extends keyof TemplatePermissions>(
+    obj: TemplatePermissions,
     key: K,
     val: number | undefined
   ) => {
@@ -94,7 +109,7 @@ export function setPresetPermissionValue(
     return next;
   }
   if ('action' in location) {
-    setOrDelete(next, location.key as keyof PresetPermissions, value);
+    setOrDelete(next, location.key as keyof TemplatePermissions, value);
     return next;
   }
   if ('notification' in location) {
@@ -137,18 +152,18 @@ export function setPresetPermissionValue(
 }
 
 /**
- * Convert a preset's PresetPermissions to a Map<PermissionLocation, number>
+ * Convert a template's TemplatePermissions to a Map<PermissionLocation, number>
  * suitable for pre-loading into PermissionGroups as pending changes.
- * Only entries explicitly set in the preset are included.
+ * Only entries explicitly set in the template are included.
  */
-export function presetPermissionsToMap(
-  permissions: PresetPermissions,
+export function templatePermissionsToMap(
+  permissions: TemplatePermissions,
   permissionGroups: PermissionGroup[]
 ): Map<PermissionLocation, number> {
   const map = new Map<PermissionLocation, number>();
 
   const tryAdd = (location: PermissionLocation) => {
-    const val = getPresetPermissionValue(permissions, location);
+    const val = getTemplatePermissionValue(permissions, location);
     if (typeof val === 'number') map.set(location, val);
   };
 
@@ -165,19 +180,19 @@ export function presetPermissionsToMap(
 }
 
 /**
- * Build a PresetPermissions that captures every permission visible in the given
+ * Build a TemplatePermissions that captures every permission visible in the given
  * permission groups plus users_default, reflecting the current room state.
- * All fields are explicitly set (no "do not change" entries) so the preset
+ * All fields are explicitly set (no "do not change" entries) so the template
  * represents a complete snapshot.
  */
-export function powerLevelsToPresetPermissions(
+export function powerLevelsToTemplatePermissions(
   powerLevels: IPowerLevels,
   permissionGroups: PermissionGroup[]
-): PresetPermissions {
-  let perms: PresetPermissions = {};
+): TemplatePermissions {
+  let perms: TemplatePermissions = {};
 
   // users_default
-  perms = setPresetPermissionValue(
+  perms = setTemplatePermissionValue(
     perms,
     USER_DEFAULT_LOCATION,
     powerLevels.users_default ?? 0
@@ -186,7 +201,7 @@ export function powerLevelsToPresetPermissions(
   permissionGroups.forEach((group) =>
     group.items.forEach((item) => {
       const power = getPermissionPower(powerLevels, item.location);
-      perms = setPresetPermissionValue(perms, item.location, power);
+      perms = setTemplatePermissionValue(perms, item.location, power);
     })
   );
 
@@ -196,46 +211,46 @@ export function powerLevelsToPresetPermissions(
 // ─── Compatibility ────────────────────────────────────────────────────────────
 
 /**
- * A preset is compatible with a room type when:
- *  - It has no permissions (labels-only preset) → universal, applies to any room type
- *  - It has permissions → must match the preset's declared roomType exactly
+ * A template is compatible with a room type when:
+ *  - It has no permissions (labels-only template) → universal, applies to any room type
+ *  - It has permissions → must match the template's declared roomType exactly
  */
-export function isPresetCompatible(preset: RoomPreset, roomType: string | null): boolean {
+export function isTemplateCompatible(template: RoomTemplate, roomType: string | null): boolean {
   const hasPermissions =
-    preset.permissions !== undefined && Object.keys(preset.permissions).length > 0;
+    template.permissions !== undefined && Object.keys(template.permissions).length > 0;
   if (!hasPermissions) return true;
-  return preset.roomType === roomType;
+  return template.roomType === roomType;
 }
 
 // ─── Status check ─────────────────────────────────────────────────────────────
 
-export function getPresetApplicationStatus(
+export function getTemplateApplicationStatus(
   room: Room,
-  preset: RoomPreset,
+  template: RoomTemplate,
   roomPowerLevels: IPowerLevels,
   canModify: boolean
-): PresetApplicationStatus {
+): TemplateApplicationStatus {
   if (!canModify) return 'no-permission';
 
   const roomType = room.getType() ?? null;
-  if (!isPresetCompatible(preset, roomType)) return 'type-mismatch';
+  if (!isTemplateCompatible(template, roomType)) return 'type-mismatch';
 
   // Check if any power level tag differs
-  if (preset.powerLevelTags && Object.keys(preset.powerLevelTags).length > 0) {
+  if (template.powerLevelTags && Object.keys(template.powerLevelTags).length > 0) {
     const roomTagsEvent = room.currentState.getStateEvents('in.cinny.room.power_level_tags', '');
     const roomTags: PowerLevelTags = roomTagsEvent?.getContent<PowerLevelTags>() ?? {};
-    for (const [powerStr, presetTag] of Object.entries(preset.powerLevelTags)) {
+    for (const [powerStr, templateTag] of Object.entries(template.powerLevelTags)) {
       const roomTag = roomTags[Number(powerStr)];
-      if (!roomTag || roomTag.name !== presetTag.name || roomTag.color !== presetTag.color) {
+      if (!roomTag || roomTag.name !== templateTag.name || roomTag.color !== templateTag.color) {
         return 'needs-sync';
       }
     }
   }
 
-  if (!preset.permissions) return 'in-sync';
+  if (!template.permissions) return 'in-sync';
 
   // Check if any permission value differs
-  const perms = preset.permissions;
+  const perms = template.permissions;
   const checks: Array<[keyof IPowerLevels, number | undefined]> = [
     ['users_default', perms.users_default],
     ['events_default', perms.events_default],
@@ -270,35 +285,35 @@ export function getPresetApplicationStatus(
 export type TagConflict = {
   power: number;
   roomTag: import('../hooks/usePowerLevelTags').PowerLevelTags[number];
-  presetTag: import('../hooks/usePowerLevelTags').PowerLevelTags[number];
+  templateTag: import('../hooks/usePowerLevelTags').PowerLevelTags[number];
 };
 
 export function getTagConflicts(
   roomTags: PowerLevelTags,
-  presetTags: PowerLevelTags
+  templateTags: PowerLevelTags
 ): TagConflict[] {
   const conflicts: TagConflict[] = [];
-  Object.entries(presetTags).forEach(([powerStr, presetTag]) => {
+  Object.entries(templateTags).forEach(([powerStr, templateTag]) => {
     const power = Number(powerStr);
     const roomTag = roomTags[power];
-    if (roomTag && roomTag.name !== presetTag.name) {
-      conflicts.push({ power, roomTag, presetTag });
+    if (roomTag && roomTag.name !== templateTag.name) {
+      conflicts.push({ power, roomTag, templateTag });
     }
   });
   return conflicts;
 }
 
-export function mergePresetTags(
+export function mergeTemplateTags(
   roomTags: PowerLevelTags,
-  presetTags: PowerLevelTags,
-  resolutions: Record<number, 'preset' | 'room'>
+  templateTags: PowerLevelTags,
+  resolutions: Record<number, 'template' | 'room'>
 ): PowerLevelTags {
   const merged = { ...roomTags };
-  Object.entries(presetTags).forEach(([powerStr, presetTag]) => {
+  Object.entries(templateTags).forEach(([powerStr, templateTag]) => {
     const power = Number(powerStr);
-    const resolution = resolutions[power] ?? 'preset';
-    if (resolution === 'preset') {
-      merged[power] = presetTag;
+    const resolution = resolutions[power] ?? 'template';
+    if (resolution === 'template') {
+      merged[power] = templateTag;
     }
     // 'room' = keep existing roomTag, so no change needed
   });
@@ -308,19 +323,19 @@ export function mergePresetTags(
 // ─── Application ─────────────────────────────────────────────────────────────
 
 /**
- * Apply a preset's permissions (and optionally tags) to a room.
- * Only permissions explicitly set in the preset are overwritten.
+ * Apply a template's permissions (and optionally tags) to a room.
+ * Only permissions explicitly set in the template are overwritten.
  */
-export async function applyPresetToRoom(
+export async function applyTemplateToRoom(
   mx: MatrixClient,
   room: Room,
-  preset: RoomPreset,
+  template: RoomTemplate,
   currentPowerLevels: IPowerLevels,
   resolvedTags?: PowerLevelTags
 ): Promise<void> {
-  if (preset.permissions && Object.keys(preset.permissions).length > 0) {
+  if (template.permissions && Object.keys(template.permissions).length > 0) {
     const editedPowerLevels = produce(currentPowerLevels, (draft) => {
-      const perms = preset.permissions!;
+      const perms = template.permissions!;
       if (typeof perms.users_default === 'number') draft.users_default = perms.users_default;
       if (typeof perms.events_default === 'number') draft.events_default = perms.events_default;
       if (typeof perms.state_default === 'number') draft.state_default = perms.state_default;
@@ -344,11 +359,11 @@ export async function applyPresetToRoom(
   }
 }
 
-// ─── Preset CRUD helpers ─────────────────────────────────────────────────────
+// ─── Template CRUD helpers ─────────────────────────────────────────────────────
 
-export function createPreset(
-  partial: Pick<RoomPreset, 'name' | 'description' | 'roomType' | 'permissions' | 'powerLevelTags'>
-): RoomPreset {
+export function createTemplate(
+  partial: Pick<RoomTemplate, 'name' | 'description' | 'roomType' | 'permissions' | 'powerLevelTags'>
+): RoomTemplate {
   return {
     id: crypto.randomUUID(),
     createdAt: Date.now(),
@@ -357,25 +372,25 @@ export function createPreset(
   };
 }
 
-export function updatePreset(existing: RoomPreset, changes: Partial<RoomPreset>): RoomPreset {
+export function updateTemplate(existing: RoomTemplate, changes: Partial<RoomTemplate>): RoomTemplate {
   return { ...existing, ...changes, updatedAt: Date.now() };
 }
 
-export function savePreset(content: RoomPresetsContent, preset: RoomPreset): RoomPresetsContent {
-  const idx = content.presets.findIndex((p) => p.id === preset.id);
-  if (idx === -1) return { presets: [...content.presets, preset] };
+export function saveTemplate(content: RoomTemplatesContent, template: RoomTemplate): RoomTemplatesContent {
+  const idx = content.presets.findIndex((p) => p.id === template.id);
+  if (idx === -1) return { presets: [...content.presets, template] };
   const next = [...content.presets];
-  next[idx] = preset;
+  next[idx] = template;
   return { presets: next };
 }
 
-export function deletePreset(content: RoomPresetsContent, presetId: string): RoomPresetsContent {
-  return { presets: content.presets.filter((p) => p.id !== presetId) };
+export function deleteTemplate(content: RoomTemplatesContent, templateId: string): RoomTemplatesContent {
+  return { presets: content.presets.filter((p) => p.id !== templateId) };
 }
 
-export function getPresetsForRoomType(
-  content: RoomPresetsContent,
+export function getTemplatesForRoomType(
+  content: RoomTemplatesContent,
   roomType: string | null
-): RoomPreset[] {
+): RoomTemplate[] {
   return content.presets.filter((p) => p.roomType === roomType);
 }

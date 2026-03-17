@@ -26,10 +26,10 @@ type PermissionGroupsProps = {
   powerLevels: IPowerLevels;
   permissionGroups: PermissionGroup[];
   /**
-   * When provided, pre-loads these as pending changes (e.g. from a preset).
+   * When provided, pre-loads these as pending changes (e.g. from a template).
    * Resets internal permissionUpdate state when this reference changes.
    */
-  presetChanges?: Map<PermissionLocation, number>;
+  templateChanges?: Map<PermissionLocation, number>;
   /**
    * When provided, called instead of directly sending a state event.
    * Useful when the parent wants to combine multiple state event sends (e.g. tags + permissions).
@@ -37,11 +37,11 @@ type PermissionGroupsProps = {
   onApply?: (editedPowerLevels: IPowerLevels) => Promise<void>;
   /**
    * When true, forces the Apply banner to appear even if there are no pending
-   * permission changes. Used for label-only presets that only modify power level tags.
+   * permission changes. Used for label-only templates that only modify power level tags.
    */
   hasPendingTags?: boolean;
   /**
-   * When provided, called on Reset so the parent can also clear preset tag state.
+   * When provided, called on Reset so the parent can also clear template tag state.
    */
   onReset?: () => void;
 };
@@ -49,7 +49,7 @@ export function PermissionGroups({
   powerLevels,
   permissionGroups,
   canEdit,
-  presetChanges,
+  templateChanges,
   onApply,
   hasPendingTags,
   onReset,
@@ -62,7 +62,7 @@ export function PermissionGroups({
   const maxPower = useMemo(() => Math.max(...getPowers(powerLevelTags)), [powerLevelTags]);
 
   const [permissionUpdate, setPermissionUpdate] = useState<Map<PermissionLocation, number>>(
-    () => (presetChanges ? new Map(presetChanges) : new Map())
+    () => (templateChanges ? new Map(templateChanges) : new Map())
   );
 
   // Reset when permissionGroups reference changes (room switch)
@@ -70,14 +70,14 @@ export function PermissionGroups({
     setPermissionUpdate(new Map());
   }, [permissionGroups]);
 
-  // When presetChanges reference changes, pre-load those changes as pending
-  const prevPresetChangesRef = useRef<Map<PermissionLocation, number> | undefined>(undefined);
+  // When templateChanges reference changes, pre-load those changes as pending
+  const prevTemplateChangesRef = useRef<Map<PermissionLocation, number> | undefined>(undefined);
   useEffect(() => {
-    if (presetChanges !== undefined && presetChanges !== prevPresetChangesRef.current) {
-      prevPresetChangesRef.current = presetChanges;
-      setPermissionUpdate(new Map(presetChanges));
+    if (templateChanges !== undefined && templateChanges !== prevTemplateChangesRef.current) {
+      prevTemplateChangesRef.current = templateChanges;
+      setPermissionUpdate(new Map(templateChanges));
     }
-  }, [presetChanges]);
+  }, [templateChanges]);
 
   const handleChangePermission = (
     location: PermissionLocation,
@@ -288,7 +288,7 @@ export function PermissionGroups({
                 <Text size="T200">
                   <b>
                     {permissionUpdate.size === 0 && hasPendingTags
-                      ? 'Preset labels ready to apply.'
+                      ? 'Template labels ready to apply.'
                       : 'Changes saved! Apply when ready.'}
                   </b>
                 </Text>

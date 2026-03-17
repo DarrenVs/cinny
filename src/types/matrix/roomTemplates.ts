@@ -2,12 +2,12 @@ import { IPowerLevels } from '../../app/hooks/usePowerLevels';
 import { PowerLevelTags } from '../../app/hooks/usePowerLevelTags';
 
 /**
- * Sparse power level permissions stored in a preset.
+ * Sparse power level permissions stored in a template.
  * Keys absent from this object mean "do not change" for that permission.
  * Mirrors IPowerLevels but all fields are optional — only explicitly
  * configured permissions are stored.
  */
-export type PresetPermissions = {
+export type TemplatePermissions = {
   users_default?: number;
   events_default?: number;
   state_default?: number;
@@ -20,26 +20,26 @@ export type PresetPermissions = {
   notifications?: Record<string, number>;
 };
 
-export type RoomPreset = {
+export type RoomTemplate = {
   id: string;
   name: string;
   description?: string;
   /** null = chat room, RoomType.Call = voice room, RoomType.Space = space */
   roomType: string | null;
-  /** Power level labels defined in this preset */
+  /** Power level labels defined in this template */
   powerLevelTags?: PowerLevelTags;
-  /** Sparse permissions — absent keys are left unchanged when preset is applied */
-  permissions?: PresetPermissions;
+  /** Sparse permissions — absent keys are left unchanged when template is applied */
+  permissions?: TemplatePermissions;
   createdAt: number;
   updatedAt: number;
 };
 
-export type RoomPresetsContent = {
-  presets: RoomPreset[];
+export type RoomTemplatesContent = {
+  presets: RoomTemplate[];
 };
 
-export type PresetApplicationStatus =
-  | 'in-sync'       // room permissions already match preset
-  | 'needs-sync'    // room differs from preset
+export type TemplateApplicationStatus =
+  | 'in-sync'       // room permissions already match template
+  | 'needs-sync'    // room differs from template
   | 'no-permission' // user cannot modify this room
-  | 'type-mismatch'; // room type does not match preset type
+  | 'type-mismatch'; // room type does not match template type

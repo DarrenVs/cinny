@@ -4,8 +4,8 @@ import { Room } from 'matrix-js-sdk';
 import { IPowerLevels } from '../../../hooks/usePowerLevels';
 import { SpaceHierarchy } from '../../../hooks/useSpaceHierarchy';
 import { RoomAvatar, RoomIcon } from '../../../components/room-avatar';
-import { RoomPreset, PresetApplicationStatus } from '../../../../types/matrix/roomPresets';
-import { getPresetApplicationStatus } from '../../../utils/roomPresets';
+import { RoomTemplate, TemplateApplicationStatus } from '../../../../types/matrix/roomTemplates';
+import { getTemplateApplicationStatus } from '../../../utils/roomTemplates';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { useMediaAuthentication } from '../../../hooks/useMediaAuthentication';
 import { getRoomAvatarUrl } from '../../../utils/room';
@@ -17,17 +17,17 @@ type RoomItem = {
   indented: boolean;
 };
 
-type ApplyPresetRoomsProps = {
+type ApplyTemplateRoomsProps = {
   hierarchy: SpaceHierarchy[];
   rootSpaceId: string;
   roomPowerLevels: Map<string, IPowerLevels>;
   canModifyRooms: Map<string, boolean>;
-  preset: RoomPreset;
+  template: RoomTemplate;
   selectedRooms: Set<string>;
   onSelectionChange: (roomId: string, selected: boolean) => void;
 };
 
-function getStatusIcon(status: PresetApplicationStatus): React.ReactNode {
+function getStatusIcon(status: TemplateApplicationStatus): React.ReactNode {
   switch (status) {
     case 'in-sync':
       return <Icon src={Icons.Check} size="100" />;
@@ -42,7 +42,7 @@ function getStatusIcon(status: PresetApplicationStatus): React.ReactNode {
   }
 }
 
-function getStatusLabel(status: PresetApplicationStatus): string {
+function getStatusLabel(status: TemplateApplicationStatus): string {
   switch (status) {
     case 'in-sync': return 'Already synced';
     case 'needs-sync': return 'Needs sync';
@@ -52,7 +52,7 @@ function getStatusLabel(status: PresetApplicationStatus): string {
   }
 }
 
-function getStatusColor(status: PresetApplicationStatus): string {
+function getStatusColor(status: TemplateApplicationStatus): string {
   switch (status) {
     case 'in-sync': return 'var(--cpd-color-text-success-primary)';
     case 'needs-sync': return 'var(--cpd-color-text-warning-primary)';
@@ -62,15 +62,15 @@ function getStatusColor(status: PresetApplicationStatus): string {
   }
 }
 
-export function ApplyPresetRooms({
+export function ApplyTemplateRooms({
   hierarchy,
   rootSpaceId,
   roomPowerLevels,
   canModifyRooms,
-  preset,
+  template,
   selectedRooms,
   onSelectionChange,
-}: ApplyPresetRoomsProps) {
+}: ApplyTemplateRoomsProps) {
   const mx = useMatrixClient();
   const useAuthentication = useMediaAuthentication();
 
@@ -98,11 +98,11 @@ export function ApplyPresetRooms({
         flatItems.map(({ room }) => {
           const pl = roomPowerLevels.get(room.roomId) ?? {};
           const canModify = canModifyRooms.get(room.roomId) ?? false;
-          const status = getPresetApplicationStatus(room, preset, pl, canModify);
+          const status = getTemplateApplicationStatus(room, template, pl, canModify);
           return [room.roomId, { status, canModify }];
         })
       ),
-    [flatItems, roomPowerLevels, canModifyRooms, preset]
+    [flatItems, roomPowerLevels, canModifyRooms, template]
   );
 
   const selectableCount = useMemo(

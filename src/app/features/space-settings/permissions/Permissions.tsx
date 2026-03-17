@@ -6,11 +6,12 @@ import { usePowerLevels } from '../../../hooks/usePowerLevels';
 import { useMatrixClient } from '../../../hooks/useMatrixClient';
 import { StateEvent, RoomType } from '../../../../types/matrix/room';
 import { usePermissionGroups } from './usePermissionItems';
-import { PermissionGroups, Powers, PowersEditor, PresetApplyFlow, SaveToPresetFlow } from '../../common-settings/permissions';
+import { PermissionGroups, Powers, PowersEditor, TemplateApplyFlow, SaveToTemplateFlow } from '../../common-settings/permissions';
 import { useRoomCreators } from '../../../hooks/useRoomCreators';
 import { useRoomPermissions } from '../../../hooks/useRoomPermissions';
-import { useSpaceRoomPresets } from '../../../hooks/useSpaceRoomPresets';
-import { useAccountRoomPresets } from '../../../hooks/useAccountRoomPresets';
+import { useSpaceRoomTemplates } from '../../../hooks/useSpaceRoomTemplates';
+import { useAccountRoomTemplates } from '../../../hooks/useAccountRoomTemplates';
+import { canManageSpaceTemplates, canManageTemplatesInSpace } from '../../../utils/roomTemplates';
 import { PermissionLocation, IPowerLevels } from '../../../hooks/usePowerLevels';
 import { PowerLevelTags } from '../../../hooks/usePowerLevelTags';
 import { useAtomValue } from 'jotai';
@@ -33,10 +34,10 @@ export function Permissions({ requestClose }: PermissionsProps) {
   const permissionGroups = usePermissionGroups();
 
   const [powerEditor, setPowerEditor] = useState(false);
-  const [applyPresetMode, setApplyPresetMode] = useState(false);
-  const [savePresetMode, setSavePresetMode] = useState(false);
-  const [presetChanges, setPresetChanges] = useState<Map<PermissionLocation, number> | undefined>();
-  const [presetTagsToSave, setPresetTagsToSave] = useState<PowerLevelTags | undefined>();
+  const [applyTemplateMode, setApplyTemplateMode] = useState(false);
+  const [saveTemplateMode, setSaveTemplateMode] = useState(false);
+  const [templateChanges, setTemplateChanges] = useState<Map<PermissionLocation, number> | undefined>();
+  const [templateTagsToSave, setTemplateTagsToSave] = useState<PowerLevelTags | undefined>();
 
   // Find parent space (if this space is nested inside another space)
   const parentSpaceId = Array.from(roomToParents.get(room.roomId) ?? []).find((id) => {
@@ -44,66 +45,70 @@ export function Permissions({ requestClose }: PermissionsProps) {
     return r?.getType() === RoomType.Space;
   });
   const parentSpace = parentSpaceId ? mx.getRoom(parentSpaceId) ?? undefined : undefined;
-  const ownSpacePresets = useSpaceRoomPresets(room);
-  const parentSpacePresets = useSpaceRoomPresets(parentSpace);
-  const accountPresets = useAccountRoomPresets();
+  const myUserId = mx.getSafeUserId();
+  const canSaveToOwnSpace = canManageSpaceTemplates(powerLevels, creators, myUserId);
+  const canSaveToParentSpace = canManageTemplatesInSpace(mx, parentSpace, myUserId);
 
-  const handlePresetApply = useCallback(
+  const ownSpaceTemplates = useSpaceRoomTemplates(room);
+  const parentSpaceTemplates = useSpaceRoomTemplates(parentSpace);
+  const accountTemplates = useAccountRoomTemplates();
+
+  const handleTemplateApply = useCallback(
     (resolvedTags: PowerLevelTags | undefined, changes: Map<PermissionLocation, number>) => {
-      setPresetTagsToSave(resolvedTags);
-      setPresetChanges(changes);
-      setApplyPresetMode(false);
+      setTemplateTagsToSave(resolvedTags);
+      setTemplateChanges(changes);
+      setApplyTemplateMode(false);
     },
     []
   );
 
-  const handlePresetReset = useCallback(() => {
-    setPresetTagsToSave(undefined);
-    setPresetChanges(undefined);
+  const handleTemplateReset = useCallback(() => {
+    setTemplateTagsToSave(undefined);
+    setTemplateChanges(undefined);
   }, []);
 
   const handleCombinedApply = useCallback(
     async (editedPowerLevels: IPowerLevels) => {
-      if (presetTagsToSave) {
-        await mx.sendStateEvent(room.roomId, StateEvent.PowerLevelTags as any, presetTagsToSave);
+      if (templateTagsToSave) {
+        await mx.sendStateEvent(room.roomId, StateEvent.PowerLevelTags as any, templateTagsToSave);
       }
       await mx.sendStateEvent(room.roomId, StateEvent.RoomPowerLevels as any, editedPowerLevels);
-      setPresetTagsToSave(undefined);
-      setPresetChanges(undefined);
+      setTemplateTagsToSave(undefined);
+      setTemplateChanges(undefined);
     },
-    [mx, room.roomId, presetTagsToSave]
+    [mx, room.roomId, templateTagsToSave]
   );
 
   if (canEditPowers && powerEditor) {
     return <PowersEditor powerLevels={powerLevels} requestClose={() => setPowerEditor(false)} />;
   }
 
-  if (applyPresetMode) {
+  if (applyTemplateMode) {
     return (
-      <PresetApplyFlow
+      <TemplateApplyFlow
         room={room}
         permissionGroups={permissionGroups}
-        spacePresets={ownSpacePresets}
-        accountPresets={accountPresets}
-        onApply={handlePresetApply}
-        onCancel={() => setApplyPresetMode(false)}
+        spaceTemplates={ownSpaceTemplates}
+        accountTemplates={accountTemplates}
+        onApply={handleTemplateApply}
+        onCancel={() => setApplyTemplateMode(false)}
       />
     );
   }
 
-  if (savePresetMode) {
+  if (saveTemplateMode) {
     return (
-      <SaveToPresetFlow
+      <SaveToTemplateFlow
         room={room}
         powerLevels={powerLevels}
         permissionGroups={permissionGroups}
-        ownSpace={room}
-        ownSpacePresetsContent={ownSpacePresets}
-        parentSpace={parentSpace}
-        spacePresetsContent={parentSpacePresets}
-        accountPresetsContent={accountPresets}
-        onSave={() => setSavePresetMode(false)}
-        onCancel={() => setSavePresetMode(false)}
+        ownSpace={canSaveToOwnSpace ? room : undefined}
+        ownSpaceTemplatesContent={canSaveToOwnSpace ? ownSpaceTemplates : undefined}
+        parentSpace={canSaveToParentSpace ? parentSpace : undefined}
+        spaceTemplatesContent={canSaveToParentSpace ? parentSpaceTemplates : undefined}
+        accountTemplatesContent={accountTemplates}
+        onSave={() => setSaveTemplateMode(false)}
+        onCancel={() => setSaveTemplateMode(false)}
       />
     );
   }
@@ -123,20 +128,20 @@ export function Permissions({ requestClose }: PermissionsProps) {
               fill="Soft"
               radii="Pill"
               before={<Icon src={Icons.Bookmark} size="50" />}
-              onClick={() => setSavePresetMode(true)}
+              onClick={() => setSaveTemplateMode(true)}
             >
-              <Text size="B300">Save as Preset</Text>
+              <Text size="B300">Save as Template</Text>
             </Chip>
             {canEditPermissions && (
               <Chip
-                variant={presetChanges ? 'Success' : 'Secondary'}
-                outlined={!!presetChanges}
+                variant={templateChanges ? 'Success' : 'Secondary'}
+                outlined={!!templateChanges}
                 fill="Soft"
                 radii="Pill"
                 before={<Icon src={Icons.Download} size="50" />}
-                onClick={() => setApplyPresetMode(true)}
+                onClick={() => setApplyTemplateMode(true)}
               >
-                <Text size="B300">Apply Preset</Text>
+                <Text size="B300">Apply Template</Text>
               </Chip>
             )}
             <IconButton onClick={requestClose} variant="Surface">
@@ -153,17 +158,17 @@ export function Permissions({ requestClose }: PermissionsProps) {
                 powerLevels={powerLevels}
                 onEdit={canEditPowers ? () => setPowerEditor(true) : undefined}
                 permissionGroups={permissionGroups}
-                overrideTags={presetTagsToSave}
-                presetTagsNotice={!!presetTagsToSave}
+                overrideTags={templateTagsToSave}
+                templateTagsNotice={!!templateTagsToSave}
               />
               <PermissionGroups
                 canEdit={canEditPermissions}
                 powerLevels={powerLevels}
                 permissionGroups={permissionGroups}
-                presetChanges={presetChanges}
-                onApply={presetTagsToSave ? handleCombinedApply : undefined}
-                hasPendingTags={!!presetTagsToSave}
-                onReset={presetTagsToSave || presetChanges ? handlePresetReset : undefined}
+                templateChanges={templateChanges}
+                onApply={templateTagsToSave ? handleCombinedApply : undefined}
+                hasPendingTags={!!templateTagsToSave}
+                onReset={templateTagsToSave || templateChanges ? handleTemplateReset : undefined}
               />
             </Box>
           </PageContent>
