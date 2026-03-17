@@ -9,6 +9,9 @@ import { RoomPreset, RoomPresetsContent } from '../../../../types/matrix/roomPre
 import { PowerColorBadge } from '../../../components/power';
 import { getTagConflicts, isPresetCompatible, mergePresetTags, presetPermissionsToMap } from '../../../utils/roomPresets';
 import { PermissionGroup } from './types';
+import { SequenceCard } from '../../../components/sequence-card';
+import { SettingTile } from '../../../components/setting-tile';
+import { SequenceCardStyle } from '../styles.css';
 
 type PresetApplyFlowProps = {
   room: Room;
@@ -204,19 +207,14 @@ export function PresetApplyFlow({
                 {conflicts.map((conflict) => {
                   const resolution = resolutions[conflict.power] ?? 'preset';
                   return (
-                    <Box
+                    <SequenceCard
                       key={conflict.power}
+                      variant="SurfaceVariant"
+                      className={SequenceCardStyle}
                       direction="Column"
-                      gap="200"
-                      style={{
-                        padding: '12px',
-                        border: '1px solid var(--cpd-color-border-interactive-secondary)',
-                        borderRadius: '8px',
-                      }}
+                      gap="300"
                     >
-                      <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                        Power level {conflict.power}
-                      </Text>
+                      <SettingTile title={`Power level ${conflict.power}`} />
                       <Box gap="200" wrap="Wrap">
                         <Chip
                           variant={resolution === 'preset' ? 'Primary' : 'Secondary'}
@@ -251,7 +249,7 @@ export function PresetApplyFlow({
                           </Text>
                         </Chip>
                       </Box>
-                    </Box>
+                    </SequenceCard>
                   );
                 })}
               </Box>
@@ -287,39 +285,32 @@ type PresetSelectCardProps = {
 
 function PresetSelectCard({ preset, onSelect }: PresetSelectCardProps) {
   return (
-    <Box
+    <SequenceCard
+      variant="SurfaceVariant"
+      className={SequenceCardStyle}
       direction="Column"
-      gap="100"
-      style={{
-        padding: '12px',
-        border: '1px solid var(--cpd-color-border-interactive-secondary)',
-        borderRadius: '8px',
-        cursor: 'pointer',
-      }}
+      gap="200"
+      style={{ cursor: 'pointer' }}
       onClick={onSelect}
     >
-      <Box alignItems="Center" justifyContent="SpaceBetween" gap="200">
-        <Text size="T300">
-          <b>{preset.name}</b>
-        </Text>
-        <Box gap="100">
-          {preset.powerLevelTags && Object.keys(preset.powerLevelTags).length > 0 && (
-            <Chip variant="Secondary" radii="Pill" size="300">
-              <Text size="T200">Labels</Text>
-            </Chip>
-          )}
-          {preset.permissions && Object.keys(preset.permissions).length > 0 && (
-            <Chip variant="Secondary" radii="Pill" size="300">
-              <Text size="T200">Permissions</Text>
-            </Chip>
-          )}
-        </Box>
-      </Box>
-      {preset.description && (
-        <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-          {preset.description}
-        </Text>
-      )}
-    </Box>
+      <SettingTile
+        title={preset.name}
+        description={preset.description}
+        after={
+          <Box gap="100" shrink="No">
+            {preset.powerLevelTags && Object.keys(preset.powerLevelTags).length > 0 && (
+              <Chip variant="Secondary" radii="Pill" size="300">
+                <Text size="T200">Labels</Text>
+              </Chip>
+            )}
+            {preset.permissions && Object.keys(preset.permissions).length > 0 && (
+              <Chip variant="Secondary" radii="Pill" size="300">
+                <Text size="T200">Permissions</Text>
+              </Chip>
+            )}
+          </Box>
+        }
+      />
+    </SequenceCard>
   );
 }

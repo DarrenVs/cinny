@@ -148,11 +148,7 @@ export function ApplyPresetRooms({
                 padding: '8px',
                 paddingLeft: indented ? '32px' : '8px',
                 borderRadius: '6px',
-                backgroundColor: isSelected
-                  ? 'var(--cpd-color-bg-subtle-primary)'
-                  : isSpaceHeader
-                  ? 'var(--cpd-color-bg-canvas-default)'
-                  : undefined,
+                backgroundColor: isSelected ? 'var(--cpd-color-bg-subtle-primary)' : undefined,
               }}
               onClick={isSelectable ? () => onSelectionChange(room.roomId, !isSelected) : undefined}
             >

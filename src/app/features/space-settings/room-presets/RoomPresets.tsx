@@ -25,6 +25,9 @@ import { applyPresetToRoom } from '../../../utils/roomPresets';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { PresetPermissionsEditor } from './PresetPermissionsEditor';
 import { ApplyPresetRooms } from './ApplyPresetRooms';
+import { SequenceCard } from '../../../components/sequence-card';
+import { SettingTile } from '../../../components/setting-tile';
+import { SequenceCardStyle } from '../../common-settings/styles.css';
 
 type RoomTypeTab = { label: string; value: string | null };
 
@@ -353,100 +356,88 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
               ) : (
                 <Box direction="Column" gap="300">
                   {currentTabPresets.map((preset) => (
-                    <Box
+                    <SequenceCard
                       key={preset.id}
+                      variant="SurfaceVariant"
+                      className={SequenceCardStyle}
                       direction="Column"
-                      gap="200"
-                      style={{
-                        padding: '16px',
-                        border: '1px solid var(--cpd-color-border-interactive-secondary)',
-                        borderRadius: '8px',
-                      }}
+                      gap="300"
                     >
-                      <Box gap="200" alignItems="Center" justifyContent="SpaceBetween">
-                        <Box direction="Column">
-                          <Text size="T300">
-                            <b>{preset.name}</b>
-                          </Text>
-                          {preset.description && (
-                            <Text
-                              size="T200"
-                              style={{ color: 'var(--cpd-color-text-secondary)' }}
-                            >
-                              {preset.description}
-                            </Text>
+                      <SettingTile
+                        title={preset.name}
+                        description={preset.description}
+                        after={
+                          <Box gap="100" shrink="No">
+                            {preset.powerLevelTags &&
+                              Object.keys(preset.powerLevelTags).length > 0 && (
+                                <Chip variant="Secondary" radii="Pill" size="300">
+                                  <Text size="T200">Labels</Text>
+                                </Chip>
+                              )}
+                            {preset.permissions &&
+                              Object.keys(preset.permissions).length > 0 && (
+                                <Chip variant="Secondary" radii="Pill" size="300">
+                                  <Text size="T200">Permissions</Text>
+                                </Chip>
+                              )}
+                          </Box>
+                        }
+                      />
+                      <Box gap="200" alignItems="Center" justifyContent="SpaceBetween" wrap="Wrap">
+                        <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
+                          Updated {new Date(preset.updatedAt).toLocaleDateString()}
+                        </Text>
+                        <Box gap="200" wrap="Wrap">
+                          {canManage && (
+                            <>
+                              <Button
+                                size="300"
+                                variant="Secondary"
+                                radii="300"
+                                before={<Icon src={Icons.Pencil} size="100" />}
+                                onClick={() => setEditingPreset(preset)}
+                              >
+                                <Text size="B300">Edit</Text>
+                              </Button>
+                              <Button
+                                size="300"
+                                variant="Secondary"
+                                radii="300"
+                                before={<Icon src={Icons.ArrowTop} size="100" />}
+                                onClick={() => {
+                                  setApplyingPreset(preset);
+                                  setSelectedRooms(new Set());
+                                  setApplyStage('select-rooms');
+                                }}
+                              >
+                                <Text size="B300">Apply to Rooms</Text>
+                              </Button>
+                            </>
                           )}
-                        </Box>
-                        <Box gap="100">
-                          {preset.powerLevelTags &&
-                            Object.keys(preset.powerLevelTags).length > 0 && (
-                              <Chip variant="Secondary" radii="Pill" size="300">
-                                <Text size="T200">Labels</Text>
-                              </Chip>
-                            )}
-                          {preset.permissions &&
-                            Object.keys(preset.permissions).length > 0 && (
-                              <Chip variant="Secondary" radii="Pill" size="300">
-                                <Text size="T200">Permissions</Text>
-                              </Chip>
-                            )}
-                        </Box>
-                      </Box>
-
-                      <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                        Updated {new Date(preset.updatedAt).toLocaleDateString()}
-                      </Text>
-
-                      <Box gap="200" wrap="Wrap">
-                        {canManage && (
-                          <>
-                            <Button
-                              size="300"
-                              variant="Secondary"
-                              radii="300"
-                              before={<Icon src={Icons.Pencil} size="100" />}
-                              onClick={() => setEditingPreset(preset)}
-                            >
-                              <Text size="B300">Edit</Text>
-                            </Button>
-                            <Button
-                              size="300"
-                              variant="Secondary"
-                              radii="300"
-                              before={<Icon src={Icons.ArrowTop} size="100" />}
-                              onClick={() => {
-                                setApplyingPreset(preset);
-                                setSelectedRooms(new Set());
-                                setApplyStage('select-rooms');
-                              }}
-                            >
-                              <Text size="B300">Apply to Rooms</Text>
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          size="300"
-                          variant="Secondary"
-                          radii="300"
-                          before={<Icon src={Icons.ArrowGoRight} size="100" />}
-                          onClick={() => handlePushToAccount(preset)}
-                        >
-                          <Text size="B300">Save to Account</Text>
-                        </Button>
-                        {canManage && (
                           <Button
                             size="300"
                             variant="Secondary"
                             radii="300"
-                            before={<Icon src={Icons.Cross} size="100" />}
-                            onClick={() => handleDeletePreset(preset.id)}
-                            disabled={deleteState.status === AsyncStatus.Loading}
+                            before={<Icon src={Icons.ArrowGoRight} size="100" />}
+                            onClick={() => handlePushToAccount(preset)}
                           >
-                            <Text size="B300">Delete</Text>
+                            <Text size="B300">Save to Account</Text>
                           </Button>
-                        )}
+                          {canManage && (
+                            <Button
+                              size="300"
+                              variant="Secondary"
+                              radii="300"
+                              before={<Icon src={Icons.Cross} size="100" />}
+                              onClick={() => handleDeletePreset(preset.id)}
+                              disabled={deleteState.status === AsyncStatus.Loading}
+                            >
+                              <Text size="B300">Delete</Text>
+                            </Button>
+                          )}
+                        </Box>
                       </Box>
-                    </Box>
+                    </SequenceCard>
                   ))}
                 </Box>
               )}
