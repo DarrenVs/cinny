@@ -19,19 +19,25 @@ type SaveToPresetFlowProps = {
   room: Room;
   powerLevels: IPowerLevels;
   permissionGroups: PermissionGroup[];
+  /** The current space (shown as a save destination when editing space permissions). */
+  ownSpace?: Room;
+  ownSpacePresetsContent?: RoomPresetsContent;
+  /** A parent space (shown as an additional save destination). */
   parentSpace?: Room;
-  spacePresetsContent: RoomPresetsContent;
+  spacePresetsContent?: RoomPresetsContent;
   accountPresetsContent: RoomPresetsContent;
   onSave: () => void;
   onCancel: () => void;
 };
 
-type Destination = 'space' | 'account';
+type Destination = 'own-space' | 'parent-space' | 'account';
 
 export function SaveToPresetFlow({
   room,
   powerLevels,
   permissionGroups,
+  ownSpace,
+  ownSpacePresetsContent,
   parentSpace,
   spacePresetsContent,
   accountPresetsContent,
@@ -41,10 +47,14 @@ export function SaveToPresetFlow({
   const mx = useMatrixClient();
   const powerLevelTags = usePowerLevelTags(room, powerLevels);
 
+  const defaultDestination: Destination = ownSpace
+    ? 'own-space'
+    : parentSpace
+    ? 'parent-space'
+    : 'account';
+
   const [name, setName] = useState(room.name ?? '');
-  const [destination, setDestination] = useState<Destination>(
-    parentSpace ? 'space' : 'account'
-  );
+  const [destination, setDestination] = useState<Destination>(defaultDestination);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
@@ -66,7 +76,10 @@ export function SaveToPresetFlow({
         powerLevelTags: tags,
       });
 
-      if (destination === 'space' && parentSpace) {
+      if (destination === 'own-space' && ownSpace && ownSpacePresetsContent) {
+        const newContent = savePreset(ownSpacePresetsContent, preset);
+        await mx.sendStateEvent(ownSpace.roomId, StateEvent.SpaceRoomPresets as any, newContent);
+      } else if (destination === 'parent-space' && parentSpace && spacePresetsContent) {
         const newContent = savePreset(spacePresetsContent, preset);
         await mx.sendStateEvent(
           parentSpace.roomId,
@@ -84,6 +97,14 @@ export function SaveToPresetFlow({
       setSaving(false);
     }
   };
+
+  const destinationLabel = (() => {
+    if (destination === 'own-space' && ownSpace)
+      return `Preset will be available to all rooms in "${ownSpace.name}".`;
+    if (destination === 'parent-space' && parentSpace)
+      return `Preset will be available to all rooms in "${parentSpace.name}".`;
+    return 'Preset will be available across all your spaces and rooms.';
+  })();
 
   return (
     <Page>
@@ -131,7 +152,7 @@ export function SaveToPresetFlow({
 
               <Box direction="Column" gap="100">
                 <Text size="L400">Save To</Text>
-                <Box gap="200">
+                <Box gap="200" wrap="Wrap">
                   <Chip
                     variant={destination === 'account' ? 'Primary' : 'Secondary'}
                     radii="Pill"
@@ -141,12 +162,23 @@ export function SaveToPresetFlow({
                   >
                     <Text size="B300">My Account</Text>
                   </Chip>
+                  {ownSpace && (
+                    <Chip
+                      variant={destination === 'own-space' ? 'Primary' : 'Secondary'}
+                      radii="Pill"
+                      onClick={() => setDestination('own-space')}
+                      aria-pressed={destination === 'own-space'}
+                      before={<Icon src={Icons.Category} size="50" />}
+                    >
+                      <Text size="B300">{ownSpace.name}</Text>
+                    </Chip>
+                  )}
                   {parentSpace && (
                     <Chip
-                      variant={destination === 'space' ? 'Primary' : 'Secondary'}
+                      variant={destination === 'parent-space' ? 'Primary' : 'Secondary'}
                       radii="Pill"
-                      onClick={() => setDestination('space')}
-                      aria-pressed={destination === 'space'}
+                      onClick={() => setDestination('parent-space')}
+                      aria-pressed={destination === 'parent-space'}
                       before={<Icon src={Icons.Category} size="50" />}
                     >
                       <Text size="B300">{parentSpace.name}</Text>
@@ -154,9 +186,7 @@ export function SaveToPresetFlow({
                   )}
                 </Box>
                 <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                  {destination === 'space' && parentSpace
-                    ? `Preset will be available to all rooms in "${parentSpace.name}".`
-                    : 'Preset will be available across all your spaces and rooms.'}
+                  {destinationLabel}
                 </Text>
               </Box>
 

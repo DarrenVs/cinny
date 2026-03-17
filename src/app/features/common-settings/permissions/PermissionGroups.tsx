@@ -40,6 +40,10 @@ type PermissionGroupsProps = {
    * permission changes. Used for label-only presets that only modify power level tags.
    */
   hasPendingTags?: boolean;
+  /**
+   * When provided, called on Reset so the parent can also clear preset tag state.
+   */
+  onReset?: () => void;
 };
 export function PermissionGroups({
   powerLevels,
@@ -48,6 +52,7 @@ export function PermissionGroups({
   presetChanges,
   onApply,
   hasPendingTags,
+  onReset,
 }: PermissionGroupsProps) {
   const mx = useMatrixClient();
   const room = useRoom();
@@ -118,7 +123,8 @@ export function PermissionGroups({
 
   const resetChanges = useCallback(() => {
     setPermissionUpdate(new Map());
-  }, []);
+    onReset?.();
+  }, [onReset]);
 
   const handleApplyChanges = () => {
     applyChanges().then(() => {

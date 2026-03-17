@@ -57,6 +57,11 @@ export function Permissions({ requestClose }: PermissionsProps) {
     []
   );
 
+  const handlePresetReset = useCallback(() => {
+    setPresetTagsToSave(undefined);
+    setPresetChanges(undefined);
+  }, []);
+
   const handleCombinedApply = useCallback(
     async (editedPowerLevels: IPowerLevels) => {
       if (presetTagsToSave) {
@@ -92,8 +97,10 @@ export function Permissions({ requestClose }: PermissionsProps) {
         room={room}
         powerLevels={powerLevels}
         permissionGroups={permissionGroups}
+        ownSpace={room}
+        ownSpacePresetsContent={ownSpacePresets}
         parentSpace={parentSpace}
-        spacePresetsContent={parentSpace ? parentSpacePresets : ownSpacePresets}
+        spacePresetsContent={parentSpacePresets}
         accountPresetsContent={accountPresets}
         onSave={() => setSavePresetMode(false)}
         onCancel={() => setSavePresetMode(false)}
@@ -156,6 +163,7 @@ export function Permissions({ requestClose }: PermissionsProps) {
                 presetChanges={presetChanges}
                 onApply={presetTagsToSave ? handleCombinedApply : undefined}
                 hasPendingTags={!!presetTagsToSave}
+                onReset={presetTagsToSave || presetChanges ? handlePresetReset : undefined}
               />
             </Box>
           </PageContent>

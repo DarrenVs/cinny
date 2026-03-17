@@ -56,6 +56,11 @@ export function Permissions({ requestClose }: PermissionsProps) {
     []
   );
 
+  const handlePresetReset = useCallback(() => {
+    setPresetTagsToSave(undefined);
+    setPresetChanges(undefined);
+  }, []);
+
   // Combined apply: save tags + permissions together
   const handleCombinedApply = useCallback(
     async (editedPowerLevels: IPowerLevels) => {
@@ -156,6 +161,7 @@ export function Permissions({ requestClose }: PermissionsProps) {
                 presetChanges={presetChanges}
                 onApply={presetTagsToSave ? handleCombinedApply : undefined}
                 hasPendingTags={!!presetTagsToSave}
+                onReset={presetTagsToSave || presetChanges ? handlePresetReset : undefined}
               />
             </Box>
           </PageContent>

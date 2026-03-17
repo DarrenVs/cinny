@@ -286,11 +286,12 @@ type PresetSelectCardProps = {
 function PresetSelectCard({ preset, onSelect }: PresetSelectCardProps) {
   return (
     <SequenceCard
+      as="button"
       variant="SurfaceVariant"
       className={SequenceCardStyle}
       direction="Column"
       gap="200"
-      style={{ cursor: 'pointer' }}
+      style={{ width: '100%', textAlign: 'left' }}
       onClick={onSelect}
     >
       <SettingTile
@@ -299,14 +300,28 @@ function PresetSelectCard({ preset, onSelect }: PresetSelectCardProps) {
         after={
           <Box gap="100" shrink="No">
             {preset.powerLevelTags && Object.keys(preset.powerLevelTags).length > 0 && (
-              <Chip variant="Secondary" radii="Pill" size="300">
+              <Box
+                style={{
+                  padding: '2px 10px',
+                  borderRadius: '999px',
+                  background: 'var(--cpd-color-bg-subtle-secondary)',
+                  pointerEvents: 'none',
+                }}
+              >
                 <Text size="T200">Labels</Text>
-              </Chip>
+              </Box>
             )}
             {preset.permissions && Object.keys(preset.permissions).length > 0 && (
-              <Chip variant="Secondary" radii="Pill" size="300">
+              <Box
+                style={{
+                  padding: '2px 10px',
+                  borderRadius: '999px',
+                  background: 'var(--cpd-color-bg-subtle-secondary)',
+                  pointerEvents: 'none',
+                }}
+              >
                 <Text size="T200">Permissions</Text>
-              </Chip>
+              </Box>
             )}
           </Box>
         }
