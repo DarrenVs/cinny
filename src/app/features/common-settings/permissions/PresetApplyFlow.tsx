@@ -295,6 +295,7 @@ function PresetSelectCard({ preset, onSelect }: PresetSelectCardProps) {
       onClick={onSelect}
     >
       <SettingTile
+        before={<Icon src={Icons.Bookmark} size="200" />}
         title={preset.name}
         description={preset.description}
         after={

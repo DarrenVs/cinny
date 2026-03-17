@@ -83,7 +83,7 @@ const useSettingsMenuItems = (): SettingsMenuItem[] =>
       {
         page: SettingsPages.RoomPresetsPage,
         name: 'Room Presets',
-        icon: Icons.Setting,
+        icon: Icons.Bookmark,
       },
       {
         page: SettingsPages.DeveloperToolsPage,

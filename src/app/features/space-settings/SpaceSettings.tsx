@@ -46,7 +46,7 @@ const useSpaceSettingsMenuItems = (): SpaceSettingsMenuItem[] =>
       {
         page: SpaceSettingsPage.RoomPresetsPage,
         name: 'Room Presets',
-        icon: Icons.Setting,
+        icon: Icons.Bookmark,
       },
       {
         page: SpaceSettingsPage.EmojisStickersPage,
