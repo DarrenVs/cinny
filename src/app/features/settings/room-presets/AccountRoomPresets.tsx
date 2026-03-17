@@ -15,7 +15,7 @@ import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { PresetPermissionsEditor } from '../../space-settings/room-presets/PresetPermissionsEditor';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SettingTile } from '../../../components/setting-tile';
-import { SequenceCardStyle } from '../../common-settings/styles.css';
+import { ClickableCardStyle, SequenceCardStyle } from '../../common-settings/styles.css';
 
 type RoomTypeTab = { label: string; value: string | null };
 
@@ -161,9 +161,11 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                     <SequenceCard
                       key={preset.id}
                       variant="SurfaceVariant"
-                      className={SequenceCardStyle}
+                      className={`${SequenceCardStyle} ${ClickableCardStyle}`}
                       direction="Column"
                       gap="300"
+                      tabIndex={0}
+                      onClick={() => setEditingPreset(preset)}
                     >
                       <SettingTile
                         before={<Icon src={Icons.Bookmark} size="200" />}
@@ -209,17 +211,11 @@ export function AccountRoomPresets({ requestClose }: AccountRoomPresetsProps) {
                             size="300"
                             variant="Secondary"
                             radii="300"
-                            before={<Icon src={Icons.Pencil} size="100" />}
-                            onClick={() => setEditingPreset(preset)}
-                          >
-                            <Text size="B300">Edit</Text>
-                          </Button>
-                          <Button
-                            size="300"
-                            variant="Secondary"
-                            radii="300"
                             before={<Icon src={Icons.Cross} size="100" />}
-                            onClick={() => handleDeletePreset(preset.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePreset(preset.id);
+                            }}
                             disabled={deleteState.status === AsyncStatus.Loading}
                           >
                             <Text size="B300">Delete</Text>

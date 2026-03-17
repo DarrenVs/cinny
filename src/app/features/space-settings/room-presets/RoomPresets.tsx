@@ -27,7 +27,7 @@ import { PresetPermissionsEditor } from './PresetPermissionsEditor';
 import { ApplyPresetRooms } from './ApplyPresetRooms';
 import { SequenceCard } from '../../../components/sequence-card';
 import { SettingTile } from '../../../components/setting-tile';
-import { SequenceCardStyle } from '../../common-settings/styles.css';
+import { ClickableCardStyle, SequenceCardStyle } from '../../common-settings/styles.css';
 
 type RoomTypeTab = { label: string; value: string | null };
 
@@ -169,6 +169,7 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
         contextRoom={space}
         onSave={(preset) => handleSavePreset(preset)}
         onCancel={() => setEditingPreset(null)}
+        onSaveToAccount={handlePushToAccount}
       />
     );
   }
@@ -359,9 +360,11 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                     <SequenceCard
                       key={preset.id}
                       variant="SurfaceVariant"
-                      className={SequenceCardStyle}
+                      className={`${SequenceCardStyle} ${canManage ? ClickableCardStyle : ''}`}
                       direction="Column"
                       gap="300"
+                      tabIndex={canManage ? 0 : undefined}
+                      onClick={canManage ? () => setEditingPreset(preset) : undefined}
                     >
                       <SettingTile
                         before={<Icon src={Icons.Bookmark} size="200" />}
@@ -402,55 +405,37 @@ export function RoomPresets({ requestClose }: RoomPresetsProps) {
                         <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
                           Updated {new Date(preset.updatedAt).toLocaleDateString()}
                         </Text>
-                        <Box gap="200" wrap="Wrap">
-                          {canManage && (
-                            <>
-                              <Button
-                                size="300"
-                                variant="Secondary"
-                                radii="300"
-                                before={<Icon src={Icons.Pencil} size="100" />}
-                                onClick={() => setEditingPreset(preset)}
-                              >
-                                <Text size="B300">Edit</Text>
-                              </Button>
-                              <Button
-                                size="300"
-                                variant="Secondary"
-                                radii="300"
-                                before={<Icon src={Icons.ArrowTop} size="100" />}
-                                onClick={() => {
-                                  setApplyingPreset(preset);
-                                  setSelectedRooms(new Set());
-                                  setApplyStage('select-rooms');
-                                }}
-                              >
-                                <Text size="B300">Apply to Rooms</Text>
-                              </Button>
-                            </>
-                          )}
-                          <Button
-                            size="300"
-                            variant="Secondary"
-                            radii="300"
-                            before={<Icon src={Icons.ArrowGoRight} size="100" />}
-                            onClick={() => handlePushToAccount(preset)}
-                          >
-                            <Text size="B300">Save to Account</Text>
-                          </Button>
-                          {canManage && (
+                        {canManage && (
+                          <Box gap="200" wrap="Wrap">
+                            <Button
+                              size="300"
+                              variant="Secondary"
+                              radii="300"
+                              before={<Icon src={Icons.ArrowTop} size="100" />}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setApplyingPreset(preset);
+                                setSelectedRooms(new Set());
+                                setApplyStage('select-rooms');
+                              }}
+                            >
+                              <Text size="B300">Apply to Rooms</Text>
+                            </Button>
                             <Button
                               size="300"
                               variant="Secondary"
                               radii="300"
                               before={<Icon src={Icons.Cross} size="100" />}
-                              onClick={() => handleDeletePreset(preset.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeletePreset(preset.id);
+                              }}
                               disabled={deleteState.status === AsyncStatus.Loading}
                             >
                               <Text size="B300">Delete</Text>
                             </Button>
-                          )}
-                        </Box>
+                          </Box>
+                        )}
                       </Box>
                     </SequenceCard>
                   ))}

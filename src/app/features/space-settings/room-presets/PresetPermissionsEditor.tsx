@@ -777,6 +777,8 @@ type PresetPermissionsEditorProps = {
   contextRoom?: Room;
   onSave: (preset: RoomPreset) => void;
   onCancel: () => void;
+  /** When provided, shows a "Save to Account" chip in the header. */
+  onSaveToAccount?: (preset: RoomPreset) => void;
 };
 
 export function PresetPermissionsEditor({
@@ -785,6 +787,7 @@ export function PresetPermissionsEditor({
   contextRoom,
   onSave,
   onCancel,
+  onSaveToAccount,
 }: PresetPermissionsEditorProps) {
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
@@ -845,6 +848,26 @@ export function PresetPermissionsEditor({
     );
   }
 
+  const buildCurrentPreset = (): RoomPreset | null => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return null;
+    return existing
+      ? updatePreset(existing, {
+          name: trimmedName,
+          description: description.trim() || undefined,
+          roomType,
+          powerLevelTags: Object.keys(powerLevelTags).length > 0 ? powerLevelTags : undefined,
+          permissions: Object.keys(permissions).length > 0 ? permissions : undefined,
+        })
+      : createPreset({
+          name: trimmedName,
+          description: description.trim() || undefined,
+          roomType,
+          powerLevelTags: Object.keys(powerLevelTags).length > 0 ? powerLevelTags : undefined,
+          permissions: Object.keys(permissions).length > 0 ? permissions : undefined,
+        });
+  };
+
   return (
     <Page>
       <PageHeader outlined={false}>
@@ -857,7 +880,22 @@ export function PresetPermissionsEditor({
               {existing ? 'Edit Preset' : 'New Preset'}
             </Text>
           </Box>
-          <Box shrink="No">
+          <Box shrink="No" gap="200" alignItems="Center">
+            {onSaveToAccount && (
+              <Chip
+                variant="Secondary"
+                fill="Soft"
+                radii="Pill"
+                before={<Icon src={Icons.ArrowGoRight} size="50" />}
+                onClick={() => {
+                  const preset = buildCurrentPreset();
+                  if (preset) onSaveToAccount(preset);
+                }}
+                disabled={!name.trim()}
+              >
+                <Text size="B300">Save to Account</Text>
+              </Chip>
+            )}
             <IconButton onClick={onCancel} variant="Surface">
               <Icon src={Icons.Cross} />
             </IconButton>
