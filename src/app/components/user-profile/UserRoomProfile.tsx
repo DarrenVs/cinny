@@ -1,5 +1,5 @@
 import { Box, Button, config, Icon, Icons, Text } from 'folds';
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserHero, UserHeroName } from './UserHero';
 import { getMxIdServer, mxcUrlToHttp } from '../../utils/matrix';
@@ -8,6 +8,7 @@ import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { usePowerLevels } from '../../hooks/usePowerLevels';
 import { useRoom } from '../../hooks/useRoom';
+import { useSpaceOptionally } from '../../hooks/useSpace';
 import { useUserPresence } from '../../hooks/useUserPresence';
 import { IgnoredUserAlert, MutualRoomsChip, OptionsChip, ServerChip, ShareChip } from './UserChips';
 import { useCloseUserRoomProfile } from '../../state/hooks/userRoomProfile';
@@ -22,6 +23,7 @@ import { useMemberPowerCompare } from '../../hooks/useMemberPowerCompare';
 import { CreatorChip } from './CreatorChip';
 import { getDirectCreatePath, withSearchParam } from '../../pages/pathUtils';
 import { DirectCreateSearchParams } from '../../pages/paths';
+import { BroadcastPowerChangeDialog } from './BroadcastPowerChangeDialog';
 
 type UserRoomProfileProps = {
   userId: string;
@@ -35,6 +37,11 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
   const ignored = ignoredUsers.includes(userId);
 
   const room = useRoom();
+  const space = useSpaceOptionally();
+  const [broadcastState, setBroadcastState] = useState<{
+    power: number;
+    tagName: string;
+  } | null>(null);
   const powerLevels = usePowerLevels(room);
   const creators = useRoomCreators(room);
 
@@ -68,6 +75,16 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
   };
 
   return (
+    <>
+    {broadcastState && space && (
+      <BroadcastPowerChangeDialog
+        space={space}
+        sourceRoom={room}
+        userId={userId}
+        tagName={broadcastState.tagName}
+        onClose={() => setBroadcastState(null)}
+      />
+    )}
     <Box direction="Column">
       <UserHero
         userId={userId}
@@ -96,7 +113,18 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
           <Box alignItems="Center" gap="200" wrap="Wrap">
             {server && <ServerChip server={server} />}
             <ShareChip userId={userId} />
-            {creator ? <CreatorChip /> : <PowerChip userId={userId} />}
+            {creator ? (
+              <CreatorChip />
+            ) : (
+              <PowerChip
+                userId={userId}
+                onChanged={
+                  space
+                    ? (power, tagName) => setBroadcastState({ power, tagName })
+                    : undefined
+                }
+              />
+            )}
             {userId !== myUserId && <MutualRoomsChip userId={userId} />}
             {userId !== myUserId && <OptionsChip userId={userId} />}
           </Box>
@@ -138,5 +166,6 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
         />
       </Box>
     </Box>
+    </>
   );
 }
