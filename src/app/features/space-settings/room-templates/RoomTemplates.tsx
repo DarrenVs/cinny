@@ -20,8 +20,8 @@ import {
   deleteTemplate,
   getTemplatesForRoomType,
 } from '../../../utils/roomTemplates';
-import { rateLimitedActions } from '../../../utils/matrix';
 import { applyTemplateToRoom } from '../../../utils/roomTemplates';
+import { withRateLimitRetry, classifyMatrixError } from '../../../utils/matrix';
 import { AsyncStatus, useAsyncCallback } from '../../../hooks/useAsyncCallback';
 import { TemplatePermissionsEditor } from './TemplatePermissionsEditor';
 import { ApplyTemplateRooms } from './ApplyTemplateRooms';
@@ -131,20 +131,46 @@ export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
     )
   );
 
-  const [applyState, handleApply] = useAsyncCallback(
-    useCallback(async () => {
-      if (!applyingTemplate) return;
-      await rateLimitedActions(selectedRoomObjects, async (room) => {
+  const [applying, setApplying] = useState(false);
+  const [applyProgress, setApplyProgress] = useState(0);
+  const [applyErrors, setApplyErrors] = useState<Array<{ roomName: string; reason: string }>>([]);
+  const [errorDetailsOpen, setErrorDetailsOpen] = useState(false);
+
+  const handleApply = useCallback(async () => {
+    if (!applyingTemplate) return;
+    setApplying(true);
+    setApplyProgress(0);
+    setApplyErrors([]);
+    setErrorDetailsOpen(false);
+    const errors: Array<{ roomName: string; reason: string }> = [];
+
+    for (let i = 0; i < selectedRoomObjects.length; i += 1) {
+      const room = selectedRoomObjects[i];
+      try {
         const pl = roomPowerLevels.get(room.roomId) ?? {};
-        // When applying from space settings, overwrite tags with template tags (no per-conflict dialog)
         const resolvedTags = applyingTemplate.powerLevelTags;
-        await applyTemplateToRoom(mx, room, applyingTemplate, pl, resolvedTags);
-      });
+        await withRateLimitRetry(() => applyTemplateToRoom(mx, room, applyingTemplate, pl, resolvedTags));
+      } catch (e) {
+        errors.push({ roomName: room.name || room.roomId, reason: classifyMatrixError(e) });
+      }
+      setApplyProgress(i + 1);
+      // Delay between rooms — applyTemplateToRoom can send two state events per room
+      // (power_levels + tags), so bursts are more likely without a pause.
+      if (i < selectedRoomObjects.length - 1) {
+        await new Promise((resolve) => { setTimeout(resolve, 500); });
+      }
+    }
+
+    setApplying(false);
+
+    if (errors.length === 0) {
       setApplyStage('closed');
       setApplyingTemplate(null);
       setSelectedRooms(new Set());
-    }, [applyingTemplate, selectedRoomObjects, roomPowerLevels, mx])
-  );
+    } else {
+      setApplyErrors(errors);
+    }
+  }, [applyingTemplate, selectedRoomObjects, roomPowerLevels, mx]);
 
   const handlePushToAccount = useCallback(
     async (template: RoomTemplate) => {
@@ -242,38 +268,81 @@ export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
                   }}
                 />
 
-                {applyState.status === AsyncStatus.Error && (
-                  <Text size="T200" style={{ color: 'var(--cpd-color-text-critical-primary)' }}>
-                    Failed to apply template. Please try again.
-                  </Text>
+                {applyErrors.length > 0 && (
+                  <Box direction="Column" gap="200">
+                    <Box gap="200" alignItems="Center">
+                      <Icon src={Icons.Warning} size="200" style={{ color: 'var(--cpd-color-text-critical-primary)', flexShrink: 0 }} />
+                      <Text size="T200" style={{ color: 'var(--cpd-color-text-critical-primary)', flexGrow: 1 }}>
+                        {applyErrors.length} room{applyErrors.length !== 1 ? 's' : ''} could not be updated.
+                      </Text>
+                      <Button
+                        variant="Secondary"
+                        fill="None"
+                        size="300"
+                        radii="300"
+                        after={<Icon src={errorDetailsOpen ? Icons.ChevronTop : Icons.ChevronBottom} size="100" />}
+                        onClick={() => setErrorDetailsOpen((v) => !v)}
+                      >
+                        <Text size="T200">{errorDetailsOpen ? 'Hide details' : 'Show details'}</Text>
+                      </Button>
+                    </Box>
+                    {errorDetailsOpen && (
+                      <Box direction="Column" gap="100" style={{ paddingLeft: '28px' }}>
+                        {applyErrors.map(({ roomName, reason }) => (
+                          <Box key={roomName} gap="300" alignItems="Center">
+                            <Text size="T200" style={{ flexGrow: 1 }}>
+                              <b>{roomName}</b>
+                            </Text>
+                            <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
+                              {reason}
+                            </Text>
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
                 )}
 
                 <Box gap="200" justifyContent="End">
-                  <Button
-                    variant="Secondary"
-                    onClick={() => {
-                      setApplyStage('closed');
-                      setApplyingTemplate(null);
-                    }}
-                  >
-                    <Text size="B300">Cancel</Text>
-                  </Button>
-                  <Button
-                    variant="Primary"
-                    disabled={selectedRooms.size === 0 || applyState.status === AsyncStatus.Loading}
-                    before={
-                      applyState.status === AsyncStatus.Loading && (
-                        <Spinner size="200" variant="Primary" fill="Solid" />
-                      )
-                    }
-                    onClick={() => handleApply()}
-                  >
-                    <Text size="B300">
-                      {applyState.status === AsyncStatus.Loading
-                        ? 'Applying...'
-                        : `Apply to ${selectedRooms.size} room${selectedRooms.size !== 1 ? 's' : ''}`}
-                    </Text>
-                  </Button>
+                  {applyErrors.length > 0 ? (
+                    <Button
+                      variant="Primary"
+                      onClick={() => {
+                        setApplyStage('closed');
+                        setApplyingTemplate(null);
+                        setSelectedRooms(new Set());
+                        setApplyErrors([]);
+                      setErrorDetailsOpen(false);
+                      }}
+                    >
+                      <Text size="B300">Done</Text>
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="Secondary"
+                        disabled={applying}
+                        onClick={() => {
+                          setApplyStage('closed');
+                          setApplyingTemplate(null);
+                        }}
+                      >
+                        <Text size="B300">Cancel</Text>
+                      </Button>
+                      <Button
+                        variant="Primary"
+                        disabled={selectedRooms.size === 0 || applying}
+                        before={applying && <Spinner size="200" variant="Primary" fill="Solid" />}
+                        onClick={handleApply}
+                      >
+                        <Text size="B300">
+                          {applying
+                            ? `Applying… ${applyProgress} / ${selectedRooms.size}`
+                            : `Apply to ${selectedRooms.size} room${selectedRooms.size !== 1 ? 's' : ''}`}
+                        </Text>
+                      </Button>
+                    </>
+                  )}
                 </Box>
               </Box>
             </PageContent>

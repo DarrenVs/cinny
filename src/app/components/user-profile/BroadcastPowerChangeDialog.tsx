@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -25,8 +25,7 @@ import { useMatrixClient } from '../../hooks/useMatrixClient';
 import { useSpaceHierarchy } from '../../hooks/useSpaceHierarchy';
 import { useMediaAuthentication } from '../../hooks/useMediaAuthentication';
 import { stopPropagation } from '../../utils/keyboard';
-import { rateLimitedActions } from '../../utils/matrix';
-import { AsyncStatus, useAsyncCallback } from '../../hooks/useAsyncCallback';
+import { withRateLimitRetry, classifyMatrixError } from '../../utils/matrix';
 import { IPowerLevels, readPowerLevel } from '../../hooks/usePowerLevels';
 import { DEFAULT_TAGS, getPowerLevelTag, PowerLevelTags } from '../../hooks/usePowerLevelTags';
 import { MemberPowerTag, Membership, StateEvent } from '../../../types/matrix/room';
@@ -100,7 +99,10 @@ type BroadcastCandidate = {
   currentTagName: string;
   alreadySet: boolean;
   canChange: boolean;
+  isPresent: boolean;
 };
+
+type RoomApplyResult = 'success' | { error: string };
 
 type BroadcastPowerChangeDialogProps = {
   space: Room;
@@ -140,7 +142,9 @@ export function BroadcastPowerChangeDialog({
     const processRoom = (room: Room, indented: boolean) => {
       if (room.roomId === sourceRoom.roomId) return;
       const member = room.getMember(userId);
-      if (member?.membership !== Membership.Join) return;
+      if (!member) return;
+      const { membership } = member;
+      if (membership !== Membership.Join && membership !== Membership.Leave) return;
 
       const allTags = getRoomAllTags(room);
       const matched = findTagByName(allTags, tagName);
@@ -158,6 +162,7 @@ export function BroadcastPowerChangeDialog({
         currentTagName: currentTag.name ?? `Level ${currentPower}`,
         alreadySet: currentPower === matched.power,
         canChange: canChangePowerInRoom(mx, room, myUserId, userId),
+        isPresent: membership === Membership.Join,
       });
     };
 
@@ -174,14 +179,31 @@ export function BroadcastPowerChangeDialog({
     return result;
   }, [hierarchy, space.roomId, sourceRoom.roomId, userId, tagName, mx, myUserId]);
 
-  // Pre-select rooms where the change can be applied and isn't already done
-  const [selected, setSelected] = useState<Set<string>>(() => {
-    const s = new Set<string>();
-    candidates.forEach((c) => {
-      if (c.canChange && !c.alreadySet) s.add(c.room.roomId);
+  // Start empty — populated by the layout effect below once candidates are ready.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Run once when candidates first arrive (hierarchy is sync, so this is before first paint).
+  // Using a ref guard so user-modified selections aren't reset if candidates later update.
+  const initializedRef = useRef(false);
+  useLayoutEffect(() => {
+    // hierarchy.length === 0 means the root space hasn't been resolved yet (shouldn't
+    // happen in practice since useSpaceHierarchy initialises synchronously, but guard anyway).
+    if (hierarchy.length === 0 || initializedRef.current) return;
+    initializedRef.current = true;
+
+    if (candidates.every((c) => c.alreadySet)) {
+      onClose();
+      return;
+    }
+
+    setSelected(() => {
+      const s = new Set<string>();
+      candidates.forEach((c) => {
+        if (c.canChange && !c.alreadySet) s.add(c.room.roomId);
+      });
+      return s;
     });
-    return s;
-  });
+  }, [hierarchy.length, candidates, onClose]);
 
   const toggleRoom = (roomId: string) =>
     setSelected((prev) => {
@@ -191,18 +213,51 @@ export function BroadcastPowerChangeDialog({
       return next;
     });
 
-  const [applyState, apply] = useAsyncCallback<void, Error, []>(
-    useCallback(async () => {
-      const toApply = candidates.filter((c) => selected.has(c.room.roomId) && c.canChange);
-      await rateLimitedActions(toApply, async (c) => {
-        await mx.setPowerLevel(c.room.roomId, userId, c.newPower);
-      });
-      onClose();
-    }, [candidates, selected, mx, userId, onClose])
-  );
+  // Per-room apply results — populated after apply, empty while idle.
+  const [applying, setApplying] = useState(false);
+  const [applyProgress, setApplyProgress] = useState(0);
+  const [applyResults, setApplyResults] = useState<Map<string, RoomApplyResult>>(new Map());
+  const hasResults = applyResults.size > 0;
+  const hasErrors = hasResults && [...applyResults.values()].some((r: RoomApplyResult) => r !== 'success');
 
-  const applying = applyState.status === AsyncStatus.Loading;
+  const apply = useCallback(async () => {
+    setApplying(true);
+    setApplyProgress(0);
+    const results = new Map<string, RoomApplyResult>();
+
+    // Re-check canChange at call time to catch stale permission snapshots.
+    const toApply = candidates.filter(
+      (c) => selected.has(c.room.roomId) && canChangePowerInRoom(mx, c.room, myUserId, userId)
+    );
+
+    for (let i = 0; i < toApply.length; i += 1) {
+      const c = toApply[i];
+      try {
+        await withRateLimitRetry(() => mx.setPowerLevel(c.room.roomId, userId, c.newPower));
+        results.set(c.room.roomId, 'success');
+      } catch (e) {
+        results.set(c.room.roomId, { error: classifyMatrixError(e) });
+      }
+      setApplyProgress(i + 1);
+      // Small delay between state-event writes to avoid bursting the homeserver rate limit.
+      if (i < toApply.length - 1) {
+        await new Promise((resolve) => { setTimeout(resolve, 300); });
+      }
+    }
+
+    setApplying(false);
+
+    if ([...results.values()].every((r: RoomApplyResult) => r === 'success')) {
+      // All succeeded — close as normal.
+      onClose();
+    } else {
+      // At least one failure — stay open so the moderator can see which rooms failed.
+      setApplyResults(results);
+    }
+  }, [candidates, selected, mx, userId, myUserId, onClose]);
+
   const actionableCount = candidates.filter((c) => c.canChange && !c.alreadySet).length;
+  const hasAbsentCandidates = candidates.some((c) => !c.isPresent && !c.alreadySet);
 
   return (
     <Overlay open backdrop={<OverlayBackdrop />}>
@@ -240,6 +295,13 @@ export function BroadcastPowerChangeDialog({
                 <b>{space.name ?? space.roomId}</b> that share the same label.
               </Text>
 
+              {hasAbsentCandidates && (
+                <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
+                  Rooms marked <i>Not in room</i> will have the change stored — it takes effect
+                  when the user rejoins.
+                </Text>
+              )}
+
               {candidates.length === 0 ? (
                 <Box
                   direction="Column"
@@ -252,18 +314,25 @@ export function BroadcastPowerChangeDialog({
                     No other rooms in this space have the <b>{tagName}</b> label.
                   </Text>
                 </Box>
+              ) : hierarchy.length === 0 ? (
+                <Box alignItems="Center" justifyContent="Center" style={{ padding: '24px' }}>
+                  <Spinner size="400" variant="Secondary" />
+                </Box>
               ) : (
                 <>
-                  <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
-                    {selected.size} of {actionableCount} room{actionableCount === 1 ? '' : 's'}{' '}
-                    selected
-                  </Text>
+                  {!hasResults && (
+                    <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
+                      {selected.size} of {actionableCount} room{actionableCount === 1 ? '' : 's'}{' '}
+                      selected
+                    </Text>
+                  )}
 
                   <Scroll style={{ maxHeight: toRem(360) }}>
                     <Box direction="Column" gap="100">
                       {candidates.map((c) => {
                         const isSelected = selected.has(c.room.roomId);
-                        const isSelectable = c.canChange && !applying;
+                        const isSelectable = c.canChange && !applying && !hasResults;
+                        const result = applyResults.get(c.room.roomId);
 
                         return (
                           <Box
@@ -277,7 +346,7 @@ export function BroadcastPowerChangeDialog({
                               cursor: isSelectable ? 'pointer' : 'default',
                               opacity: c.canChange ? 1 : 0.5,
                               backgroundColor:
-                                isSelected && !c.alreadySet
+                                isSelected && !c.alreadySet && !hasResults
                                   ? 'var(--cpd-color-bg-subtle-primary)'
                                   : undefined,
                             }}
@@ -285,7 +354,24 @@ export function BroadcastPowerChangeDialog({
                               isSelectable ? () => toggleRoom(c.room.roomId) : undefined
                             }
                           >
-                            {c.canChange ? (
+                            {hasResults ? (
+                              <Box style={{ width: '20px' }}>
+                                {result === 'success' && (
+                                  <Icon
+                                    src={Icons.Check}
+                                    size="200"
+                                    style={{ color: 'var(--cpd-color-text-success-primary)' }}
+                                  />
+                                )}
+                                {result && result !== 'success' && (
+                                  <Icon
+                                    src={Icons.Cross}
+                                    size="200"
+                                    style={{ color: 'var(--cpd-color-text-critical-primary)' }}
+                                  />
+                                )}
+                              </Box>
+                            ) : c.canChange ? (
                               <Checkbox
                                 checked={isSelected}
                                 disabled={applying}
@@ -319,17 +405,29 @@ export function BroadcastPowerChangeDialog({
                               <Text size="T300" truncate>
                                 <b>{c.room.name || '(No name)'}</b>
                               </Text>
+                              {!c.isPresent && (
+                                <Text size="T200" style={{ color: 'var(--cpd-color-text-secondary)' }}>
+                                  Not in room
+                                </Text>
+                              )}
                             </Box>
 
                             <Box gap="100" alignItems="Center" shrink="No">
-                              {c.alreadySet ? (
+                              {result && result !== 'success' ? (
+                                <Text
+                                  size="T200"
+                                  style={{ color: 'var(--cpd-color-text-critical-primary)' }}
+                                >
+                                  {result.error}
+                                </Text>
+                              ) : c.alreadySet || result === 'success' ? (
                                 <>
                                   <PowerColorBadge color={c.newTag.color} />
                                   <Text
                                     size="T200"
                                     style={{ color: 'var(--cpd-color-text-success-primary)' }}
                                   >
-                                    Already {c.newTag.name ?? tagName}
+                                    {c.alreadySet ? `Already ${c.newTag.name ?? tagName}` : (c.newTag.name ?? tagName)}
                                   </Text>
                                 </>
                               ) : c.canChange ? (
@@ -366,9 +464,9 @@ export function BroadcastPowerChangeDialog({
                 </>
               )}
 
-              {applyState.status === AsyncStatus.Error && (
+              {hasErrors && (
                 <Text size="T300" style={{ color: 'var(--cpd-color-text-critical-primary)' }}>
-                  Error: {applyState.error.message}
+                  Some rooms could not be updated. The changes may have been applied to other rooms.
                 </Text>
               )}
 
@@ -376,32 +474,40 @@ export function BroadcastPowerChangeDialog({
                 <>
                   <Line size="300" />
                   <Box gap="200" justifyContent="End">
-                    <Button
-                      variant="Secondary"
-                      fill="Soft"
-                      radii="300"
-                      onClick={onClose}
-                      disabled={applying}
-                    >
-                      <Text size="B300">Cancel</Text>
-                    </Button>
-                    <Button
-                      variant="Primary"
-                      radii="300"
-                      onClick={apply}
-                      disabled={applying || selected.size === 0}
-                      before={
-                        applying ? (
-                          <Spinner size="300" variant="Primary" fill="Solid" />
-                        ) : undefined
-                      }
-                    >
-                      <Text size="B300">
-                        {applying
-                          ? 'Applying…'
-                          : `Apply to ${selected.size} room${selected.size === 1 ? '' : 's'}`}
-                      </Text>
-                    </Button>
+                    {hasResults ? (
+                      <Button variant="Primary" radii="300" onClick={onClose}>
+                        <Text size="B300">Done</Text>
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="Secondary"
+                          fill="Soft"
+                          radii="300"
+                          onClick={onClose}
+                          disabled={applying}
+                        >
+                          <Text size="B300">Cancel</Text>
+                        </Button>
+                        <Button
+                          variant="Primary"
+                          radii="300"
+                          onClick={apply}
+                          disabled={applying || selected.size === 0}
+                          before={
+                            applying ? (
+                              <Spinner size="300" variant="Primary" fill="Solid" />
+                            ) : undefined
+                          }
+                        >
+                          <Text size="B300">
+                            {applying
+                              ? `Applying… ${applyProgress} / ${selected.size}`
+                              : `Apply to ${selected.size} room${selected.size === 1 ? '' : 's'}`}
+                          </Text>
+                        </Button>
+                      </>
+                    )}
                   </Box>
                 </>
               )}

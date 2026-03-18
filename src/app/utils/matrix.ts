@@ -356,6 +356,54 @@ export const rateLimitedActions = async <T, R = void>(
   }
 };
 
+/**
+ * Translate a Matrix API error into a short, user-friendly string.
+ * Hides raw error codes — callers can surface this text directly in the UI.
+ */
+export const classifyMatrixError = (e: unknown): string => {
+  const err = e as { errcode?: string; message?: string; httpStatus?: number } | null;
+  if (!err) return 'Unknown error';
+  switch (err.errcode) {
+    case 'M_FORBIDDEN': return 'No permission';
+    case 'M_LIMIT_EXCEEDED': return 'Rate limit exceeded';
+    case 'M_NOT_FOUND': return 'Room or resource not found';
+    case 'M_TOO_LARGE': return 'Content too large';
+    case 'M_BAD_JSON': return 'Invalid data';
+    case 'M_UNKNOWN':
+    default:
+      return err.message ?? 'Unknown error';
+  }
+};
+
+/**
+ * Retry an async operation when the server responds with HTTP 429.
+ * Waits for the server-specified `retry_after_ms` (falling back to 3 s) before
+ * each retry attempt.  Non-429 errors are re-thrown immediately.
+ */
+export const withRateLimitRetry = async <T>(
+  fn: () => Promise<T>,
+  maxRetries = 3
+): Promise<T> => {
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      return await fn();
+    } catch (e) {
+      const err = e as MatrixError | null;
+      if (err?.httpStatus === 429 && attempt < maxRetries) {
+        const waitMs = err.getRetryAfterMs() ?? 3000;
+        // eslint-disable-next-line no-await-in-loop
+        await new Promise((resolve) => { setTimeout(resolve, waitMs); });
+        attempt += 1;
+      } else {
+        throw e;
+      }
+    }
+  }
+};
+
 export const knockSupported = (version: string): boolean => {
   const unsupportedVersion = ['1', '2', '3', '4', '5', '6'];
   return !unsupportedVersion.includes(version);

@@ -38,6 +38,9 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
 
   const room = useRoom();
   const space = useSpaceOptionally();
+  // When editing a space member directly (top-level space has no parent in context),
+  // use the room itself as the broadcast space.
+  const broadcastSpace = room.isSpaceRoom() ? room : space;
   const [broadcastState, setBroadcastState] = useState<{
     power: number;
     tagName: string;
@@ -76,9 +79,9 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
 
   return (
     <>
-    {broadcastState && space && (
+    {broadcastState && broadcastSpace && (
       <BroadcastPowerChangeDialog
-        space={space}
+        space={broadcastSpace}
         sourceRoom={room}
         userId={userId}
         tagName={broadcastState.tagName}
@@ -119,7 +122,7 @@ export function UserRoomProfile({ userId }: UserRoomProfileProps) {
               <PowerChip
                 userId={userId}
                 onChanged={
-                  space
+                  broadcastSpace
                     ? (power, tagName) => setBroadcastState({ power, tagName })
                     : undefined
                 }

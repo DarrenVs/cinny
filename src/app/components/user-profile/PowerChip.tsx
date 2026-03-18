@@ -201,7 +201,11 @@ export function PowerChip({
   const handlePowerSelect = (power: number): void => {
     close();
     if (!canChangePowers) return;
-    if (power === getMemberPowerLevel(userId)) return;
+    if (power === getMemberPowerLevel(userId)) {
+      // No change in this room, but still trigger broadcast check for other rooms.
+      onChanged?.(power, getPowerLevelTag(powerLevelTags, power).name ?? '');
+      return;
+    }
 
     if (userId === mx.getSafeUserId()) {
       setSelfDemote(power);

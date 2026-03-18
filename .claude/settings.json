@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"console.log\\([].every\\(c => c.alreadySet\\)\\)\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(grep -v \"//\")"
+    ]
+  }
+}

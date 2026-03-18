@@ -362,7 +362,7 @@ function TemplatePowerLevelsEditor({
     deleted.size > 0 ||
     Object.entries(editedTags).some(([k, v]) => {
       const orig = powerLevelTags[Number(k)];
-      return !orig || orig.name !== v.name || orig.color !== v.color;
+      return !orig || orig.name !== v.name || orig.color !== v.color || orig.icon?.key !== v.icon?.key;
     });
 
   return (
