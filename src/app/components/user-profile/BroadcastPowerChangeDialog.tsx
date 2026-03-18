@@ -100,6 +100,8 @@ type BroadcastCandidate = {
   alreadySet: boolean;
   canChange: boolean;
   isPresent: boolean;
+  /** Set when the room is structurally incompatible — shown disabled with this reason. */
+  disabledReason?: string;
 };
 
 type RoomApplyResult = 'success' | { error: string };
@@ -148,11 +150,25 @@ export function BroadcastPowerChangeDialog({
 
       const allTags = getRoomAllTags(room);
       const matched = findTagByName(allTags, tagName);
-      if (!matched) return;
 
       const powerLevels = getRoomPowerLevels(room);
       const currentPower = readPowerLevel.user(powerLevels, userId);
       const currentTag = getPowerLevelTag(allTags, currentPower);
+
+      if (!matched) {
+        result.push({
+          room,
+          indented,
+          newPower: 0,
+          newTag: {},
+          currentTagName: currentTag.name ?? `Level ${currentPower}`,
+          alreadySet: false,
+          canChange: false,
+          isPresent: membership === Membership.Join,
+          disabledReason: 'Label not configured',
+        });
+        return;
+      }
 
       result.push({
         room,
@@ -256,7 +272,7 @@ export function BroadcastPowerChangeDialog({
     }
   }, [candidates, selected, mx, userId, myUserId, onClose]);
 
-  const actionableCount = candidates.filter((c) => c.canChange && !c.alreadySet).length;
+  const actionableCount = candidates.filter((c) => c.canChange && !c.alreadySet && !c.disabledReason).length;
   const hasAbsentCandidates = candidates.some((c) => !c.isPresent && !c.alreadySet);
 
   return (
@@ -331,7 +347,7 @@ export function BroadcastPowerChangeDialog({
                     <Box direction="Column" gap="100">
                       {candidates.map((c) => {
                         const isSelected = selected.has(c.room.roomId);
-                        const isSelectable = c.canChange && !applying && !hasResults;
+                        const isSelectable = c.canChange && !applying && !hasResults && !c.disabledReason && !c.alreadySet;
                         const result = applyResults.get(c.room.roomId);
 
                         return (
@@ -344,7 +360,7 @@ export function BroadcastPowerChangeDialog({
                               paddingLeft: c.indented ? '32px' : '8px',
                               borderRadius: '6px',
                               cursor: isSelectable ? 'pointer' : 'default',
-                              opacity: c.canChange ? 1 : 0.5,
+                              opacity: c.canChange && !c.disabledReason && !c.alreadySet ? 1 : 0.5,
                               backgroundColor:
                                 isSelected && !c.alreadySet && !hasResults
                                   ? 'var(--cpd-color-bg-subtle-primary)'
@@ -371,6 +387,8 @@ export function BroadcastPowerChangeDialog({
                                   />
                                 )}
                               </Box>
+                            ) : c.disabledReason || c.alreadySet ? (
+                              <Checkbox checked={false} disabled />
                             ) : c.canChange ? (
                               <Checkbox
                                 checked={isSelected}
@@ -413,7 +431,14 @@ export function BroadcastPowerChangeDialog({
                             </Box>
 
                             <Box gap="100" alignItems="Center" shrink="No">
-                              {result && result !== 'success' ? (
+                              {c.disabledReason ? (
+                                <Text
+                                  size="T200"
+                                  style={{ color: 'var(--cpd-color-text-secondary)' }}
+                                >
+                                  {c.disabledReason}
+                                </Text>
+                              ) : result && result !== 'success' ? (
                                 <Text
                                   size="T200"
                                   style={{ color: 'var(--cpd-color-text-critical-primary)' }}

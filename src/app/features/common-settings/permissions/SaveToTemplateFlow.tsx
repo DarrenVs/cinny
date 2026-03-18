@@ -122,7 +122,7 @@ export function SaveToTemplateFlow({
           </Button>
           <Box grow="Yes">
             <Text size="H3" truncate>
-              Save as Template
+              Save as Blueprint
             </Text>
           </Box>
         </Box>
@@ -138,7 +138,7 @@ export function SaveToTemplateFlow({
               </Text>
 
               <Box direction="Column" gap="100">
-                <Text size="L400">Template Name</Text>
+                <Text size="L400">Blueprint Name</Text>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -168,7 +168,7 @@ export function SaveToTemplateFlow({
                       radii="Pill"
                       onClick={() => setDestination('own-space')}
                       aria-pressed={destination === 'own-space'}
-                      before={<Icon src={Icons.Category} size="50" />}
+                      before={<Icon src={Icons.File} size="50" />}
                     >
                       <Text size="B300">{ownSpace.name}</Text>
                     </Chip>
@@ -179,7 +179,7 @@ export function SaveToTemplateFlow({
                       radii="Pill"
                       onClick={() => setDestination('parent-space')}
                       aria-pressed={destination === 'parent-space'}
-                      before={<Icon src={Icons.Category} size="50" />}
+                      before={<Icon src={Icons.File} size="50" />}
                     >
                       <Text size="B300">{parentSpace.name}</Text>
                     </Chip>
@@ -208,7 +208,7 @@ export function SaveToTemplateFlow({
                   before={saving && <Spinner variant="Primary" fill="Solid" size="100" />}
                   onClick={handleSave}
                 >
-                  <Text size="B300">Save Template</Text>
+                  <Text size="B300">Save Blueprint</Text>
                 </Button>
               </Box>
             </Box>

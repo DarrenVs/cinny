@@ -45,8 +45,8 @@ const useSpaceSettingsMenuItems = (): SpaceSettingsMenuItem[] =>
       },
       {
         page: SpaceSettingsPage.RoomTemplatesPage,
-        name: 'Permission Templates',
-        icon: Icons.Bookmark,
+        name: 'Blueprints',
+        icon: Icons.File,
       },
       {
         page: SpaceSettingsPage.EmojisStickersPage,

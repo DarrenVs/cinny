@@ -199,6 +199,10 @@ export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
         onSave={(template) => handleSaveTemplate(template)}
         onCancel={() => setEditingTemplate(null)}
         onSaveToAccount={handlePushToAccount}
+        availableTemplates={[
+          ...spaceTemplates.presets,
+          ...accountTemplates.presets,
+        ].filter((t) => t.id !== (editingTemplate !== 'new' ? editingTemplate?.id : undefined))}
       />
     );
   }
@@ -359,7 +363,7 @@ export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
         <Box grow="Yes" gap="200" alignItems="Center">
           <Box grow="Yes" alignItems="Center">
             <Text size="H3" truncate>
-              Permission Templates
+              Blueprints
             </Text>
           </Box>
           <Box shrink="No">
@@ -384,7 +388,7 @@ export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
                     before={<Icon src={Icons.Plus} size="100" />}
                     onClick={() => setEditingTemplate('new')}
                   >
-                    <Text size="B300">New Template</Text>
+                    <Text size="B300">New Blueprint</Text>
                   </Button>
                 </Box>
               )}
@@ -398,7 +402,7 @@ export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
                   style={{ padding: '32px', color: 'var(--cpd-color-text-secondary)' }}
                 >
                   <Icon src={Icons.Setting} size="400" />
-                  <Text size="T200">No templates yet.</Text>
+                  <Text size="T200">No blueprints yet.</Text>
                   {canManage && (
                     <Button
                       size="300"
@@ -429,7 +433,7 @@ export function RoomTemplates({ requestClose }: RoomTemplatesProps) {
                       onClick={canManage ? () => setEditingTemplate(template) : undefined}
                     >
                       <SettingTile
-                        before={<Icon src={Icons.Bookmark} size="200" />}
+                        before={<Icon src={Icons.File} size="200" />}
                         title={template.name}
                         description={template.description}
                         after={

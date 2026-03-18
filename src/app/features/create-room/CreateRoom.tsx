@@ -42,9 +42,6 @@ import {
 import { RoomType } from '../../../types/matrix/room';
 import { CreateRoomTypeSelector } from '../../components/create-room/CreateRoomTypeSelector';
 import { getRoomIconSrc } from '../../utils/room';
-import { useSpaceRoomTemplates } from '../../hooks/useSpaceRoomTemplates';
-import { useAccountRoomTemplates } from '../../hooks/useAccountRoomTemplates';
-import { RoomTemplate } from '../../../types/matrix/roomTemplates';
 
 const getCreateRoomAccessToIcon = (access: CreateRoomAccess, type?: CreateRoomType) => {
   const isVoiceRoom = type === CreateRoomType.VoiceRoom;
@@ -102,15 +99,7 @@ export function CreateRoomForm({
   const allowKnockRestricted =
     access === CreateRoomAccess.Restricted && knockRestrictedSupported(selectedRoomVersion);
 
-  const spaceTemplates = useSpaceRoomTemplates(space);
-  const accountTemplates = useAccountRoomTemplates();
-  const [selectedTemplate, setSelectedTemplate] = useState<RoomTemplate | null>(null);
-
   const currentRoomType = type === CreateRoomType.VoiceRoom ? RoomType.Call : null;
-  const availableTemplates = [
-    ...spaceTemplates.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
-    ...accountTemplates.presets.filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0),
-  ];
 
   const handleRoomVersionChange = (version: string) => {
     if (!restrictedSupported(version)) {
@@ -164,9 +153,6 @@ export function CreateRoomForm({
       knock: roomKnock,
       allowFederation: federation,
       additionalCreators: allowAdditionalCreators ? additionalCreators : undefined,
-      powerLevelOverride: selectedTemplate?.permissions && Object.keys(selectedTemplate.permissions).length > 0
-        ? (selectedTemplate.permissions as Record<string, unknown>)
-        : undefined,
     }).then((roomId) => {
       if (alive()) {
         onCreate?.(roomId);
@@ -224,43 +210,6 @@ export function CreateRoomForm({
 
       {access === CreateRoomAccess.Public && <CreateRoomAliasInput disabled={disabled} />}
 
-      {availableTemplates.length > 0 && (
-        <Box shrink="No" direction="Column" gap="100">
-          <Text size="L400">Use Template (Optional)</Text>
-          <select
-            value={selectedTemplate?.id ?? ''}
-            onChange={(e) => {
-              const template = availableTemplates.find((p) => p.id === e.target.value) ?? null;
-              setSelectedTemplate(template);
-            }}
-            disabled={disabled}
-            style={{
-              padding: '10px 12px',
-              borderRadius: '8px',
-              border: '1px solid var(--cpd-color-border-interactive-secondary)',
-              background: 'var(--cpd-color-bg-canvas-default)',
-              color: 'var(--cpd-color-text-primary)',
-              fontSize: '14px',
-            }}
-          >
-            <option value="">— No template —</option>
-            {spaceTemplates.presets
-              .filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} (space)
-                </option>
-              ))}
-            {accountTemplates.presets
-              .filter((p) => p.roomType === currentRoomType && p.permissions && Object.keys(p.permissions).length > 0)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} (account)
-                </option>
-              ))}
-          </select>
-        </Box>
-      )}
 
       <Box shrink="No" direction="Column" gap="100">
         <Box gap="200" alignItems="End">

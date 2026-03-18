@@ -81,6 +81,9 @@ export function AccountRoomTemplates({ requestClose }: AccountRoomTemplatesProps
         // No contextRoom in account settings — emoji picker disabled
         onSave={(template) => handleSaveTemplate(template)}
         onCancel={() => setEditingTemplate(null)}
+        availableTemplates={accountTemplates.presets.filter(
+          (t) => t.id !== (editingTemplate !== 'new' ? editingTemplate?.id : undefined)
+        )}
       />
     );
   }
@@ -91,7 +94,7 @@ export function AccountRoomTemplates({ requestClose }: AccountRoomTemplatesProps
         <Box grow="Yes" gap="200" alignItems="Center">
           <Box grow="Yes" alignItems="Center">
             <Text size="H3" truncate>
-              Permission Templates
+              Blueprints
             </Text>
           </Box>
           <Box shrink="No">
@@ -119,7 +122,7 @@ export function AccountRoomTemplates({ requestClose }: AccountRoomTemplatesProps
                   before={<Icon src={Icons.Plus} size="100" />}
                   onClick={() => setEditingTemplate('new')}
                 >
-                  <Text size="B300">New Template</Text>
+                  <Text size="B300">New Blueprint</Text>
                 </Button>
               </Box>
 
@@ -132,7 +135,7 @@ export function AccountRoomTemplates({ requestClose }: AccountRoomTemplatesProps
                   style={{ padding: '32px', color: 'var(--cpd-color-text-secondary)' }}
                 >
                   <Icon src={Icons.Setting} size="400" />
-                  <Text size="T200">No templates yet.</Text>
+                  <Text size="T200">No blueprints yet.</Text>
                   <Button
                     size="300"
                     variant="Secondary"
@@ -161,7 +164,7 @@ export function AccountRoomTemplates({ requestClose }: AccountRoomTemplatesProps
                       onClick={() => setEditingTemplate(template)}
                     >
                       <SettingTile
-                        before={<Icon src={Icons.Bookmark} size="200" />}
+                        before={<Icon src={Icons.File} size="200" />}
                         title={template.name}
                         description={template.description}
                         after={

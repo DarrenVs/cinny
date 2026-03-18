@@ -3,7 +3,13 @@
     "allow": [
       "Bash(node -e \"console.log\\([].every\\(c => c.alreadySet\\)\\)\")",
       "Bash(grep -v \"^$\")",
-      "Bash(grep -v \"//\")"
+      "Bash(grep -v \"//\")",
+      "Bash(grep -h \"Icons\\\\.\" c:UsersdarreGitHubcinnysrcappfeaturesspace-settingsroom-templates*.tsx)",
+      "Bash(grep -r \"react-icons\\\\|VscNotebook\\\\|FaRegList\\\\|MdOutline\\\\|PiList\" /c/Users/darre/GitHub/cinny/package.json /c/Users/darre/GitHub/cinny/src --include=*.ts --include=*.tsx --include=*.json -l)",
+      "Bash(find /c/Users/darre/GitHub/cinny/node_modules/folds/dist -name *.d.ts)",
+      "Bash(find /c/Users/darre/GitHub/cinny/node_modules/folds/dist -name Icons* -o -name icon*)",
+      "Bash(sed -i 's/Icons\\\\.Bookmark/Icons.OrderList/g' \"/c/Users/darre/GitHub/cinny/src/app/features/space-settings/SpaceSettings.tsx\" \"/c/Users/darre/GitHub/cinny/src/app/features/common-settings/permissions/TemplateApplyFlow.tsx\" \"/c/Users/darre/GitHub/cinny/src/app/features/space-settings/permissions/Permissions.tsx\" \"/c/Users/darre/GitHub/cinny/src/app/features/room-settings/permissions/Permissions.tsx\" \"/c/Users/darre/GitHub/cinny/src/app/features/space-settings/room-templates/RoomTemplates.tsx\" \"/c/Users/darre/GitHub/cinny/src/app/features/settings/Settings.tsx\" \"/c/Users/darre/GitHub/cinny/src/app/features/settings/room-templates/AccountRoomTemplates.tsx\")",
+      "Bash(sed -i 's/Icons\\\\.Category/Icons.OrderList/g' \"/c/Users/darre/GitHub/cinny/src/app/features/common-settings/permissions/SaveToTemplateFlow.tsx\" \"/c/Users/darre/GitHub/cinny/src/app/features/space-settings/room-templates/TemplatePermissionsEditor.tsx\")"
     ]
   }
 }

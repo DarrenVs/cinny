@@ -127,10 +127,10 @@ export function Permissions({ requestClose }: PermissionsProps) {
               variant="Secondary"
               fill="Soft"
               radii="Pill"
-              before={<Icon src={Icons.Bookmark} size="50" />}
+              before={<Icon src={Icons.File} size="50" />}
               onClick={() => setSaveTemplateMode(true)}
             >
-              <Text size="B300">Save as Template</Text>
+              <Text size="B300">Save as Blueprint</Text>
             </Chip>
             {canEditPermissions && (
               <Chip
@@ -141,7 +141,7 @@ export function Permissions({ requestClose }: PermissionsProps) {
                 before={<Icon src={Icons.Download} size="50" />}
                 onClick={() => setApplyTemplateMode(true)}
               >
-                <Text size="B300">Apply Template</Text>
+                <Text size="B300">Apply Blueprint</Text>
               </Chip>
             )}
             <IconButton onClick={requestClose} variant="Surface">

@@ -537,7 +537,7 @@ function TemplatePowerLevelsEditor({
                   <Box alignItems="Center" gap="400">
                     <Box grow="Yes">
                       <Text size="T200">
-                        <b>Labels changed. Apply to save them to the template.</b>
+                        <b>Labels changed. Apply to save them to the blueprint.</b>
                       </Text>
                     </Box>
                     <Button
@@ -779,6 +779,8 @@ type TemplatePermissionsEditorProps = {
   onCancel: () => void;
   /** When provided, shows a "Save to Account" chip in the header. */
   onSaveToAccount?: (template: RoomTemplate) => void;
+  /** When provided, shows an "Apply Blueprint" chip to load settings from another template. */
+  availableTemplates?: RoomTemplate[];
 };
 
 export function TemplatePermissionsEditor({
@@ -788,6 +790,7 @@ export function TemplatePermissionsEditor({
   onSave,
   onCancel,
   onSaveToAccount,
+  availableTemplates,
 }: TemplatePermissionsEditorProps) {
   const [name, setName] = useState(existing?.name ?? '');
   const [description, setDescription] = useState(existing?.description ?? '');
@@ -799,6 +802,7 @@ export function TemplatePermissionsEditor({
   );
   const [permissions, setPermissions] = useState<TemplatePermissions>(existing?.permissions ?? {});
   const [showPowerEditor, setShowPowerEditor] = useState(false);
+  const [templatePickerCords, setTemplatePickerCords] = useState<RectCords | undefined>();
 
   const chatGroups = useChatPermissionGroups(false);
   const voiceGroups = useChatPermissionGroups(true);
@@ -809,6 +813,29 @@ export function TemplatePermissionsEditor({
     if (roomType === RoomType.Call) return voiceGroups;
     return chatGroups;
   }, [roomType, chatGroups, voiceGroups, spaceGroups]);
+
+  const hasChanges = useMemo(() => {
+    if (!existing) return name.trim().length > 0;
+    if (name.trim() !== existing.name.trim()) return true;
+    if ((description.trim() || undefined) !== existing.description) return true;
+    if (roomType !== existing.roomType) return true;
+    if (
+      JSON.stringify(powerLevelTags) !==
+      JSON.stringify(existing.powerLevelTags ?? DEFAULT_PRESET_TAGS)
+    )
+      return true;
+    if (JSON.stringify(permissions) !== JSON.stringify(existing.permissions ?? {})) return true;
+    return false;
+  }, [name, description, roomType, powerLevelTags, permissions, existing]);
+
+  const handleLoadTemplate = useCallback(
+    (source: RoomTemplate) => {
+      setPowerLevelTags(source.powerLevelTags ?? DEFAULT_PRESET_TAGS);
+      setPermissions(source.permissions ?? {});
+      setTemplatePickerCords(undefined);
+    },
+    []
+  );
 
   const handleSave = () => {
     const trimmedName = name.trim();
@@ -877,10 +904,65 @@ export function TemplatePermissionsEditor({
           </IconButton>
           <Box grow="Yes">
             <Text size="H3" truncate>
-              {existing ? 'Edit Template' : 'New Template'}
+              {existing ? 'Edit Blueprint' : 'New Blueprint'}
             </Text>
           </Box>
           <Box shrink="No" gap="200" alignItems="Center">
+            {availableTemplates && availableTemplates.length > 0 && (
+              <PopOut
+                anchor={templatePickerCords}
+                position="Bottom"
+                align="End"
+                offset={4}
+                content={
+                  <FocusTrap
+                    focusTrapOptions={{
+                      initialFocus: false,
+                      onDeactivate: () => setTemplatePickerCords(undefined),
+                      clickOutsideDeactivates: true,
+                      escapeDeactivates: stopPropagation,
+                    }}
+                  >
+                    <Menu>
+                      <Box
+                        direction="Column"
+                        gap="100"
+                        style={{ padding: config.space.S100, maxWidth: toRem(220) }}
+                      >
+                        {availableTemplates.map((t) => (
+                          <MenuItem
+                            key={t.id}
+                            variant="Surface"
+                            fill="None"
+                            size="300"
+                            radii="300"
+                            before={<Icon src={Icons.File} size="50" />}
+                            onClick={() => handleLoadTemplate(t)}
+                          >
+                            <Text size="B300" truncate>
+                              {t.name}
+                            </Text>
+                          </MenuItem>
+                        ))}
+                      </Box>
+                    </Menu>
+                  </FocusTrap>
+                }
+              >
+                <Chip
+                  variant="Secondary"
+                  fill="Soft"
+                  radii="Pill"
+                  before={<Icon src={Icons.File} size="50" />}
+                  onClick={(e) =>
+                    setTemplatePickerCords(e.currentTarget.getBoundingClientRect())
+                  }
+                  aria-pressed={!!templatePickerCords}
+                >
+                  <Text size="B300">Apply Blueprint</Text>
+                </Chip>
+              </PopOut>
+            )}
             {onSaveToAccount && (
               <Chip
                 variant="Secondary"
@@ -964,47 +1046,50 @@ export function TemplatePermissionsEditor({
                 onChange={setPermissions}
               />
 
-              {/* Save button */}
-              <Menu
-                style={{
-                  position: 'sticky',
-                  padding: config.space.S200,
-                  paddingLeft: config.space.S400,
-                  bottom: config.space.S400,
-                  left: config.space.S400,
-                  right: 0,
-                  zIndex: 1,
-                }}
-                variant="Secondary"
-              >
-                <Box alignItems="Center" gap="400">
-                  <Box grow="Yes">
-                    <Text size="T200">
-                      Permissions set to &quot;Do not change&quot; will not alter rooms when applied.
-                    </Text>
+              {/* Save button — only shown when there are unsaved changes */}
+              {hasChanges && (
+                <Menu
+                  style={{
+                    position: 'sticky',
+                    padding: config.space.S200,
+                    paddingLeft: config.space.S400,
+                    bottom: config.space.S400,
+                    left: config.space.S400,
+                    right: 0,
+                    zIndex: 1,
+                  }}
+                  variant="Success"
+                >
+                  <Box alignItems="Center" gap="400">
+                    <Box grow="Yes">
+                      <Text size="T200">
+                        Permissions set to &quot;Do not change&quot; will not alter rooms when
+                        applied.
+                      </Text>
+                    </Box>
+                    <Box shrink="No" gap="200">
+                      <Button
+                        size="300"
+                        variant="Success"
+                        fill="None"
+                        radii="300"
+                        onClick={onCancel}
+                      >
+                        <Text size="B300">Cancel</Text>
+                      </Button>
+                      <Button
+                        size="300"
+                        variant="Success"
+                        radii="300"
+                        disabled={!name.trim()}
+                        onClick={handleSave}
+                      >
+                        <Text size="B300">Save Blueprint</Text>
+                      </Button>
+                    </Box>
                   </Box>
-                  <Box shrink="No" gap="200">
-                    <Button
-                      size="300"
-                      variant="Secondary"
-                      fill="None"
-                      radii="300"
-                      onClick={onCancel}
-                    >
-                      <Text size="B300">Cancel</Text>
-                    </Button>
-                    <Button
-                      size="300"
-                      variant="Primary"
-                      radii="300"
-                      disabled={!name.trim()}
-                      onClick={handleSave}
-                    >
-                      <Text size="B300">Save Template</Text>
-                    </Button>
-                  </Box>
-                </Box>
-              </Menu>
+                </Menu>
+              )}
             </Box>
           </PageContent>
         </Scroll>

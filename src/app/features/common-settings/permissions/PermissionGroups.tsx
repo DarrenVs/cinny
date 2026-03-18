@@ -288,7 +288,7 @@ export function PermissionGroups({
                 <Text size="T200">
                   <b>
                     {permissionUpdate.size === 0 && hasPendingTags
-                      ? 'Template labels ready to apply.'
+                      ? 'Blueprint labels ready to apply.'
                       : 'Changes saved! Apply when ready.'}
                   </b>
                 </Text>

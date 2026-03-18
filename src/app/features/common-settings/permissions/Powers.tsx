@@ -187,7 +187,7 @@ export function Powers({ powerLevels, permissionGroups, onEdit, overrideTags, te
                   <TooltipProvider
                     tooltip={
                       <Tooltip>
-                        <Text size="T200">Apply the template first, then edit labels.</Text>
+                        <Text size="T200">Apply the blueprint first, then edit labels.</Text>
                       </Tooltip>
                     }
                   >

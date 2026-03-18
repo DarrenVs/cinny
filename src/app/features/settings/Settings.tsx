@@ -82,8 +82,8 @@ const useSettingsMenuItems = (): SettingsMenuItem[] =>
       },
       {
         page: SettingsPages.RoomTemplatesPage,
-        name: 'Permission Templates',
-        icon: Icons.Bookmark,
+        name: 'Blueprints',
+        icon: Icons.File,
       },
       {
         page: SettingsPages.DeveloperToolsPage,

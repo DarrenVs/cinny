@@ -111,7 +111,7 @@ export function TemplateApplyFlow({
             </Button>
             <Box grow="Yes">
               <Text size="H3" truncate>
-                Apply Template
+                Apply Blueprint
               </Text>
             </Box>
           </Box>
@@ -134,13 +134,13 @@ export function TemplateApplyFlow({
                     style={{ padding: '32px', color: 'var(--cpd-color-text-secondary)' }}
                   >
                     <Icon src={Icons.Setting} size="400" />
-                    <Text size="T200">No matching templates found.</Text>
+                    <Text size="T200">No matching blueprints found.</Text>
                   </Box>
                 )}
 
                 {matchingSpaceTemplates.length > 0 && (
                   <Box direction="Column" gap="200">
-                    <Text size="L400">Space Templates</Text>
+                    <Text size="L400">Space Blueprints</Text>
                     {matchingSpaceTemplates.map((template) => (
                       <TemplateSelectCard
                         key={template.id}
@@ -153,7 +153,7 @@ export function TemplateApplyFlow({
 
                 {matchingAccountTemplates.length > 0 && (
                   <Box direction="Column" gap="200">
-                    <Text size="L400">Account Templates</Text>
+                    <Text size="L400">Account Blueprints</Text>
                     {matchingAccountTemplates.map((template) => (
                       <TemplateSelectCard
                         key={template.id}
@@ -295,7 +295,7 @@ function TemplateSelectCard({ template, onSelect }: TemplateSelectCardProps) {
       onClick={onSelect}
     >
       <SettingTile
-        before={<Icon src={Icons.Bookmark} size="200" />}
+        before={<Icon src={Icons.File} size="200" />}
         title={template.name}
         description={template.description}
         after={
